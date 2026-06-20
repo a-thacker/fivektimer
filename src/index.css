@@ -1,0 +1,698 @@
+/* ============================================================
+   TRIATHLON TIMING — Global Styles
+   Design: high-contrast, outdoor-readable, operator-first
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0f1117;
+  --surface:   #1a1d27;
+  --surface2:  #22263a;
+  --border:    #2e3250;
+  --accent:    #00d4ff;
+  --accent2:   #ff6b35;
+  --success:   #00c47a;
+  --danger:    #ff4757;
+  --warning:   #ffd32a;
+  --text:      #f0f2ff;
+  --muted:     #8892b0;
+  --run-color:#00d4ff;
+
+  --radius:    6px;
+  --radius-lg: 12px;
+  font-size: 16px;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Layout ── */
+.app-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-logo {
+  padding: 20px 16px 12px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-logo span { color: var(--text); }
+
+.sidebar nav { flex: 1; padding: 8px 0; }
+
+.nav-section {
+  padding: 12px 16px 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.nav-link {
+  display: block;
+  padding: 9px 16px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 500;
+  transition: color 0.15s, background 0.15s;
+  border-left: 3px solid transparent;
+}
+
+.nav-link:hover {
+  color: var(--text);
+  background: var(--surface2);
+  text-decoration: none;
+}
+
+.nav-link.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--surface2);
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: var(--radius);
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+.btn:hover { opacity: 0.85; }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.btn-primary   { background: var(--accent);   color: #0f1117; }
+.btn-success   { background: var(--success);  color: #0f1117; }
+.btn-danger    { background: var(--danger);   color: #fff; }
+.btn-warning   { background: var(--warning);  color: #0f1117; }
+.btn-ghost     { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-sm        { padding: 6px 12px; font-size: 0.82rem; }
+.btn-lg        { padding: 14px 26px; font-size: 1.05rem; }
+.btn-xl        { padding: 18px 32px; font-size: 1.2rem; }
+
+/* ── Forms ── */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 6px;
+}
+
+.form-input,
+.form-select {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.form-input:focus,
+.form-select:focus {
+  border-color: var(--accent);
+}
+
+.form-input::placeholder { color: var(--muted); }
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ── Tables ── */
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+thead th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+tbody tr:hover { background: var(--surface2); }
+
+tbody td {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+/* ── Badges ── */
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge-yes   { background: #00c47a22; color: var(--success); }
+.badge-no    { background: #ff475722; color: var(--danger); }
+.badge-run  { background: #ffd32a22; color: var(--run-color); }
+.badge-team-type { background: #00d4ff22; color: var(--run-color); }
+
+/* ── Page titles ── */
+.page-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.page-sub {
+  color: var(--muted);
+  font-size: 0.92rem;
+  margin-bottom: 24px;
+}
+
+/* ── Search input ── */
+.search-bar {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.search-bar input {
+  padding-left: 40px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+/* ── Status chips ── */
+.status-chip {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px;
+  max-width: 480px;
+  width: 90%;
+}
+
+.modal h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.modal p {
+  color: var(--muted);
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* ── Timing page specific ── */
+.timing-search {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg);
+  padding: 16px 0 12px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.timing-search input {
+  font-size: 1.6rem;
+  font-weight: 700;
+  padding: 14px 20px;
+  letter-spacing: 0.08em;
+  border: 2px solid var(--accent);
+  background: var(--surface);
+}
+
+.timing-search input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,212,255,0.15);
+}
+
+.race-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.participant-timing-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  transition: border-color 0.15s;
+}
+
+.participant-timing-row.highlighted {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,212,255,0.2);
+}
+
+.participant-timing-row.finished {
+  opacity: 0.6;
+}
+
+.participant-timing-row.dnf {
+  opacity: 0.5;
+  border-color: var(--danger);
+}
+
+.timing-row-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.race-num-badge {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: var(--accent);
+  min-width: 44px;
+}
+
+.participant-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  flex: 1;
+}
+
+.participant-age {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.progress-dots {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.dot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.dot.done { color: var(--success); }
+
+.timing-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Dashboard stat cards ── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.stat-number {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+/* ── Alert ── */
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.alert-warn  { background: #ffd32a18; border: 1px solid #ffd32a55; color: var(--warning); }
+.alert-error { background: #ff475718; border: 1px solid #ff475755; color: var(--danger);  }
+.alert-info  { background: #00d4ff18; border: 1px solid #00d4ff55; color: var(--accent);  }
+.alert-ok    { background: #00c47a18; border: 1px solid #00c47a55; color: var(--success); }
+
+/* ── Results ── */
+.results-section-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  margin: 28px 0 12px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.rank-medal { font-size: 1.2rem; }
+
+/* ── Print styles ── */
+@media print {
+  :root {
+    --bg: #fff;
+    --surface: #fff;
+    --surface2: #f8f8f8;
+    --border: #ddd;
+    --text: #000;
+    --muted: #666;
+    --accent: #000;
+  }
+
+  .sidebar, .no-print { display: none !important; }
+  .main-content { padding: 0 !important; overflow: visible !important; }
+  .app-layout { display: block !important; }
+  table { font-size: 11px; }
+  .card { border: 1px solid #ddd; page-break-inside: avoid; }
+  body { background: #fff; color: #000; }
+}
+
+/* ── Misc ── */
+.flex { display: flex; }
+.flex-center { display: flex; align-items: center; }
+.gap-8  { gap: 8px; }
+.gap-12 { gap: 12px; }
+.mb-8   { margin-bottom: 8px; }
+.mb-16  { margin-bottom: 16px; }
+.mb-24  { margin-bottom: 24px; }
+.text-muted { color: var(--muted); }
+.text-success { color: var(--success); }
+.text-danger  { color: var(--danger); }
+.text-warning { color: var(--warning); }
+.text-accent  { color: var(--accent); }
+.font-bold { font-weight: 700; }
+.text-sm { font-size: 0.85rem; }
+.text-right { text-align: right; }
+.w-full { width: 100%; }
+
+/* ── Running figure animation ── */
+.running {
+  --color: #fff;
+  --duration: .7s;
+}
+.running .outer {
+  animation: running-outer var(--duration) linear infinite;
+}
+.running .body {
+  background: var(--color);
+  height: 15px;
+  width: 8px;
+  border-radius: 4px;
+  transform-origin: 4px 11px;
+  position: relative;
+  transform: rotate(32deg);
+  animation: running-body var(--duration) linear infinite;
+}
+.running .body:before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  bottom: 16px;
+  left: 0;
+  position: absolute;
+  background: var(--color);
+}
+.running .arm,
+.running .arm:before,
+.running .leg,
+.running .leg:before {
+  content: '';
+  width: var(--w, 11px);
+  height: 4px;
+  top: var(--t, 0);
+  left: var(--l, 2px);
+  border-radius: 2px;
+  transform-origin: 2px 2px;
+  position: absolute;
+  background: var(--c, var(--color));
+  transform: rotate(var(--r, 0deg));
+  animation: var(--name, running-arm-leg) var(--duration) linear infinite;
+}
+.running .arm:before      { --l: 7px; --name: running-arm-b; }
+.running .arm.front       { --r: 24deg;  --r-to: 164deg; }
+.running .arm.front:before{ --r: -48deg; --r-to: -36deg; }
+.running .arm.behind      { --r: 164deg; --r-to: 24deg;  }
+.running .arm.behind:before{ --r: -36deg; --r-to: -48deg; }
+.running .leg             { --w: 12px; --t: 11px; }
+.running .leg:before      { --t: 0; --l: 8px; }
+.running .leg.front       { --r: 10deg;  --r-to: 108deg; }
+.running .leg.front:before{ --r: 18deg;  --r-to: 76deg;  }
+.running .leg.behind      { --r: 108deg; --r-to: 10deg; --c: none; }
+.running .leg.behind:before{ --c: var(--color); --r: 76deg; --r-to: 18deg; }
+.running .leg.behind:after {
+  content: '';
+  top: 0; right: 0;
+  height: 4px; width: 6px;
+  clip-path: polygon(2px 0, 6px 0, 6px 4px, 0 4px);
+  border-radius: 0 2px 2px 0;
+  position: absolute;
+  background: var(--color);
+}
+
+@keyframes running-outer {
+  50%    { transform: translateY(0); }
+  25%,75%{ transform: translateY(4px); }
+}
+@keyframes running-body {
+  50%    { transform: rotate(16deg); }
+  25%,75%{ transform: rotate(24deg); }
+}
+@keyframes running-arm-leg {
+  50% { transform: rotate(var(--r-to)); }
+}
+@keyframes running-arm-b {
+  30%,70% { transform: rotate(var(--r-to)); }
+}
+
+/* ── Running figure animation ── */
+.running {
+  --color: #fff;
+  --duration: .7s;
+}
+.running .outer {
+  animation: running-outer var(--duration) linear infinite;
+}
+.running .body {
+  background: var(--color);
+  height: 15px;
+  width: 8px;
+  border-radius: 4px;
+  transform-origin: 4px 11px;
+  position: relative;
+  transform: rotate(32deg);
+  animation: running-body var(--duration) linear infinite;
+}
+.running .body:before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  bottom: 16px;
+  left: 0;
+  position: absolute;
+  background: var(--color);
+}
+.running .arm,
+.running .arm:before,
+.running .leg,
+.running .leg:before {
+  content: '';
+  width: var(--w, 11px);
+  height: 4px;
+  top: var(--t, 0);
+  left: var(--l, 2px);
+  border-radius: 2px;
+  transform-origin: 2px 2px;
+  position: absolute;
+  background: var(--c, var(--color));
+  transform: rotate(var(--r, 0deg));
+  animation: var(--name, running-arm-leg) var(--duration) linear infinite;
+}
+.running .arm:before      { --l: 7px; --name: running-arm-b; }
+.running .arm.front       { --r: 24deg;  --r-to: 164deg; }
+.running .arm.front:before{ --r: -48deg; --r-to: -36deg; }
+.running .arm.behind      { --r: 164deg; --r-to: 24deg;  }
+.running .arm.behind:before{ --r: -36deg; --r-to: -48deg; }
+.running .leg             { --w: 12px; --t: 11px; }
+.running .leg:before      { --t: 0; --l: 8px; }
+.running .leg.front       { --r: 10deg;  --r-to: 108deg; }
+.running .leg.front:before{ --r: 18deg;  --r-to: 76deg;  }
+.running .leg.behind      { --r: 108deg; --r-to: 10deg; --c: none; }
+.running .leg.behind:before{ --c: var(--color); --r: 76deg; --r-to: 18deg; }
+.running .leg.behind:after {
+  content: '';
+  top: 0; right: 0;
+  height: 4px; width: 6px;
+  clip-path: polygon(2px 0, 6px 0, 6px 4px, 0 4px);
+  border-radius: 0 2px 2px 0;
+  position: absolute;
+  background: var(--color);
+}
+
+@keyframes running-outer {
+  50%    { transform: translateY(0); }
+  25%,75%{ transform: translateY(4px); }
+}
+@keyframes running-body {
+  50%    { transform: rotate(16deg); }
+  25%,75%{ transform: rotate(24deg); }
+}
+@keyframes running-arm-leg {
+  50% { transform: rotate(var(--r-to)); }
+}
+@keyframes running-arm-b {
+  30%,70% { transform: rotate(var(--r-to)); }
+}
