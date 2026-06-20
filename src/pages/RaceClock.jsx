@@ -1,6 +1,37 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { formatDuration, diffMs, teamColorStyle, TEAM_COLORS, AGE_GROUPS } from '../lib/utils'
+import QRCode from 'qrcode'
+
+const DEFAULT_CLOCK_CATEGORIES = { overall: true, men: true, women: true, team: false, age_group: false }
+
+function ResultsQRCode() {
+  const [dataUrl, setDataUrl] = useState(null)
+
+  useEffect(() => {
+    const url = `${window.location.origin}/results`
+    QRCode.toDataURL(url, {
+      width: 220,
+      margin: 1,
+      color: { dark: '#0f1117', light: '#f0f2ff' },
+    }).then(setDataUrl).catch(() => {})
+  }, [])
+
+  if (!dataUrl) return null
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16,
+      padding: '20px 24px',
+    }}>
+      <img src={dataUrl} alt="Scan for full results" style={{ width: 160, height: 160, borderRadius: 8 }} />
+      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text)', textAlign: 'center' }}>
+        Scan for full results
+      </div>
+    </div>
+  )
+}
 
 function FullscreenButton() {
   const [isFs, setIsFs] = useState(false)
@@ -174,10 +205,13 @@ export default function RaceClock() {
     setRaceEnd(endEv?.ts || null)
     setStatus(endEv ? 'ended' : startEv ? 'running' : 'waiting')
 
-    const { data: settingsData } = await supabase.from('app_settings').select('*').eq('id', 1).single()
+    const { data: settingsData, error: settingsError } = await supabase.from('app_settings').select('*').eq('id', 1).single()
+    if (settingsError) {
+      console.error('Failed to load app_settings:', settingsError.message)
+    }
     if (settingsData) {
       setSettings(settingsData)
-      setCategories(settingsData.clock_display_categories || {})
+      setCategories(settingsData.clock_display_categories || DEFAULT_CLOCK_CATEGORIES)
     }
 
     const { data: tData } = await supabase.from('timing_records')
@@ -271,7 +305,7 @@ export default function RaceClock() {
           {showCategories && (
             <div style={{
               marginTop: 40, display: 'flex', gap: 48, flexWrap: 'wrap',
-              justifyContent: 'center', width: '100%', maxWidth: 1000,
+              justifyContent: 'center', alignItems: 'flex-start', width: '100%', maxWidth: 1100,
             }}>
               {categories.overall && <CategoryList title="Top 3 Overall" rows={catData.overall} />}
               {categories.men     && <CategoryList title="Top 3 Men"     rows={catData.men} />}
@@ -280,6 +314,7 @@ export default function RaceClock() {
               {categories.age_group && catData.ageGroups.map(g => (
                 <CategoryList key={g.group} title={`Age Group — ${g.group}`} rows={g.rows} />
               ))}
+              {status === 'ended' && <ResultsQRCode />}
             </div>
           )}
 
