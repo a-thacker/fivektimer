@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { formatDuration, diffMs, teamColorStyle, TEAM_COLORS, AGE_GROUPS } from '../lib/utils'
+import { formatDuration, diffMs, teamColorStyle, TEAM_COLORS, AGE_GROUPS, raceTypeLabel } from '../lib/utils'
 import QRCode from 'qrcode'
 
-const DEFAULT_CLOCK_CATEGORIES = { overall: true, men: true, women: true, team: false, age_group: false }
+const DEFAULT_CATEGORY_SET = { overall: true, men: true, women: true, team: false, age_group: false }
+const DEFAULT_CLOCK_CATEGORIES = { trail: DEFAULT_CATEGORY_SET, kids_run: DEFAULT_CATEGORY_SET }
+
+const RELEASE_FIELD = { trail: 'trail_results_released', kids_run: 'kids_run_results_released' }
 
 function ResultsQRCode() {
   const [dataUrl, setDataUrl] = useState(null)
@@ -109,7 +113,7 @@ function CategoryList({ title, rows, isTeam = false }) {
 }
 
 // Loads category standings only when needed (results released + at least one category toggled on)
-function ClockResultsLoader({ categories, showCategories, children }) {
+function ClockResultsLoader({ raceType, categories, showCategories, children }) {
   const [catData, setCatData] = useState({ overall: [], men: [], women: [], team: [], ageGroups: [] })
 
   useEffect(() => {
@@ -117,15 +121,16 @@ function ClockResultsLoader({ categories, showCategories, children }) {
     load()
     const t = setInterval(load, 10000)
     return () => clearInterval(t)
-  }, [showCategories, JSON.stringify(categories)])
+  }, [showCategories, raceType, JSON.stringify(categories)])
 
   async function load() {
     const { data: ev } = await supabase.from('race_events').select('ts')
-      .eq('event_type', 'start').order('ts', { ascending: false }).limit(1)
+      .eq('race_type', raceType).eq('event_type', 'start').order('ts', { ascending: false }).limit(1)
     const raceStart = ev?.[0]?.ts || null
 
     const { data: indT } = await supabase.from('timing_records')
-      .select('*, participants(*)').not('finish_time', 'is', null).eq('dnf', false).is('team_color', null)
+      .select('*, participants(*)').eq('race_type', raceType)
+      .not('finish_time', 'is', null).eq('dnf', false).is('team_color', null)
     const indRows = (indT || [])
       .filter(r => !r.participants?.exclude_from_results)
       .map(r => ({
@@ -144,11 +149,11 @@ function ClockResultsLoader({ categories, showCategories, children }) {
     let teamRows = []
     if (categories.team) {
       const { data: teamT } = await supabase.from('timing_records').select('*')
-        .not('finish_time', 'is', null).eq('dnf', false).not('team_color', 'is', null)
+        .eq('race_type', raceType).not('finish_time', 'is', null).eq('dnf', false).not('team_color', 'is', null)
       const teamColors = (teamT || []).map(r => r.team_color)
       let tmMap = {}
       if (teamColors.length > 0) {
-        const { data } = await supabase.from('participants').select('*').in('team_color', teamColors)
+        const { data } = await supabase.from('participants').select('*').in('team_color', teamColors).eq('race_type', raceType)
         if (data) data.forEach(p => {
           if (!tmMap[p.team_color]) tmMap[p.team_color] = []
           tmMap[p.team_color].push(p)
@@ -175,6 +180,9 @@ function ClockResultsLoader({ categories, showCategories, children }) {
 }
 
 export default function RaceClock() {
+  const { raceType } = useParams()
+  const validType = raceType === 'trail' || raceType === 'kids_run'
+
   const [raceStart, setRaceStart] = useState(null)
   const [raceEnd, setRaceEnd]     = useState(null)
   const [status, setStatus]       = useState('loading')
@@ -190,14 +198,16 @@ export default function RaceClock() {
   const accent = 'var(--run-color)'
 
   useEffect(() => {
+    if (!validType) return
     load()
     const dataInterval  = setInterval(load, 4000)
     const clockInterval = setInterval(() => setNow(Date.now()), 100)
     return () => { clearInterval(dataInterval); clearInterval(clockInterval); clearTimeout(toastTimer.current) }
-  }, [])
+  }, [raceType])
 
   async function load() {
-    const { data: evData } = await supabase.from('race_events').select('event_type, ts').order('ts', { ascending: false })
+    const { data: evData } = await supabase.from('race_events').select('event_type, ts')
+      .eq('race_type', raceType).order('ts', { ascending: false })
     const startEv = (evData || []).find(e => e.event_type === 'start')
     const endEv   = (evData || []).find(e => e.event_type === 'end')
 
@@ -211,11 +221,13 @@ export default function RaceClock() {
     }
     if (settingsData) {
       setSettings(settingsData)
-      setCategories(settingsData.clock_display_categories || DEFAULT_CLOCK_CATEGORIES)
+      const allCats = settingsData.clock_display_categories || DEFAULT_CLOCK_CATEGORIES
+      setCategories(allCats[raceType] || DEFAULT_CATEGORY_SET)
     }
 
     const { data: tData } = await supabase.from('timing_records')
       .select('*, participants(*)')
+      .eq('race_type', raceType)
       .not('finish_time', 'is', null)
       .eq('dnf', false)
       .order('finish_time', { ascending: true })
@@ -241,13 +253,26 @@ export default function RaceClock() {
     }
   }
 
+  if (!validType) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: '1.5rem', fontFamily: 'Inter, system-ui, sans-serif',
+      }}>
+        Invalid race. Use /clock/trail or /clock/kids_run
+      </div>
+    )
+  }
+
   const raceEndTs = raceEnd ? new Date(raceEnd).getTime() : null
   const elapsedMs = raceStart ? (raceEndTs || now) - new Date(raceStart).getTime() : 0
 
-  const showCategories = settings?.results_released && categories && Object.values(categories).some(Boolean)
+  const released = settings?.[RELEASE_FIELD[raceType]]
+  const showCategories = released && categories && Object.values(categories).some(Boolean)
 
   return (
-    <ClockResultsLoader categories={categories} showCategories={showCategories}>
+    <ClockResultsLoader raceType={raceType} categories={categories} showCategories={showCategories}>
       {(catData) => (
         <div style={{
           minHeight: '100vh',
@@ -266,7 +291,7 @@ export default function RaceClock() {
             fontSize: 'clamp(1.5rem, 4vw, 3rem)', fontWeight: 900, color: accent,
             letterSpacing: '0.04em', marginTop: showCategories ? '20px' : 0, marginBottom: '24px', textTransform: 'uppercase',
           }}>
-            5K Race
+            {raceTypeLabel(raceType)}
           </div>
 
           {status === 'waiting' && (

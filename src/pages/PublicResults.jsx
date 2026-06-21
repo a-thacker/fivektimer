@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { formatDuration, diffMs, teamColorStyle, TEAM_COLORS, AGE_GROUPS } from '../lib/utils'
+import { formatDuration, diffMs, teamColorStyle, TEAM_COLORS, AGE_GROUPS, RACE_TYPES, raceTypeLabel } from '../lib/utils'
 
 const TABS = [
   { key: 'live',  label: 'Live'  },
   { key: 'final', label: 'Final' },
 ]
+
+const RELEASE_FIELD = { trail: 'trail_results_released', kids_run: 'kids_run_results_released' }
 
 function ordinal(n) {
   if (n === 1) return '1st'
@@ -17,17 +19,18 @@ function ordinal(n) {
 
 async function fetchSettings() {
   const { data } = await supabase.from('app_settings').select('*').eq('id', 1).single()
-  return data || { results_released: false }
+  return data || { trail_results_released: false, kids_run_results_released: false }
 }
 
-async function fetchLive() {
-  const { data: evData } = await supabase.from('race_events').select('event_type, ts').order('ts', { ascending: false })
+async function fetchLive(raceType) {
+  const { data: evData } = await supabase.from('race_events').select('event_type, ts')
+    .eq('race_type', raceType).order('ts', { ascending: false })
   const startEv = (evData || []).find(e => e.event_type === 'start')
   const endEv   = (evData || []).find(e => e.event_type === 'end')
   const startTs = startEv?.ts || null
 
   const { data: tData } = await supabase.from('timing_records').select('*')
-    .not('finish_time', 'is', null).eq('dnf', false)
+    .eq('race_type', raceType).not('finish_time', 'is', null).eq('dnf', false)
   if (!tData) return { rows: [], raceStart: startTs, raceEnd: endEv?.ts || null }
 
   const individualIds = tData.filter(r => r.participant_id && !r.team_color).map(r => r.participant_id)
@@ -40,7 +43,7 @@ async function fetchLive() {
   }
   let teamMap = {}
   if (teamColors.length > 0) {
-    const { data } = await supabase.from('participants').select('*').in('team_color', teamColors)
+    const { data } = await supabase.from('participants').select('*').in('team_color', teamColors).eq('race_type', raceType)
     if (data) data.forEach(p => {
       if (!teamMap[p.team_color]) teamMap[p.team_color] = []
       teamMap[p.team_color].push(p)
@@ -92,7 +95,7 @@ function computePlacements(row, allInd, allTeams) {
 }
 
 // ── Result card download ──
-function downloadResultCard(row, placements = []) {
+function downloadResultCard(row, raceType, placements = []) {
   const canvas = document.createElement('canvas')
   const placementH = placements.length > 0 ? 36 : 0
   const W = 800, H = 280 + placementH
@@ -108,7 +111,7 @@ function downloadResultCard(row, placements = []) {
   ctx.fillText('5KTimer', 32, 44)
   ctx.fillStyle = '#8892b0'
   ctx.font = '15px system-ui, sans-serif'
-  ctx.fillText('5K Race', 32, 68)
+  ctx.fillText(raceTypeLabel(raceType), 32, 68)
 
   ctx.fillStyle = '#2e3250'; ctx.fillRect(32, 82, W - 64, 1)
 
@@ -183,7 +186,7 @@ function SaveButton({ onClick }) {
   )
 }
 
-function ResultCard({ rank, row, placements = [] }) {
+function ResultCard({ rank, row, raceType, placements = [] }) {
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -217,7 +220,7 @@ function ResultCard({ rank, row, placements = [] }) {
         <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: '1.05rem', color: 'var(--accent)', flexShrink: 0 }}>
           {formatDuration(row.totalMs)}
         </div>
-        <SaveButton onClick={() => downloadResultCard(row, placements)} />
+        <SaveButton onClick={() => downloadResultCard(row, raceType, placements)} />
       </div>
     </div>
   )
@@ -237,7 +240,7 @@ function SectionLabel({ children }) {
 
 // ── Tabs ──
 
-function LiveTab() {
+function LiveTab({ raceType }) {
   const [rows, setRows] = useState([])
   const [raceStart, setRaceStart] = useState(null)
   const [raceEnd, setRaceEnd] = useState(null)
@@ -246,14 +249,15 @@ function LiveTab() {
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
+    setLoading(true)
     refresh()
     const data = setInterval(refresh, 10000)
     const clock = setInterval(() => setNow(Date.now()), 1000)
     return () => { clearInterval(data); clearInterval(clock) }
-  }, [])
+  }, [raceType])
 
   async function refresh() {
-    const { rows, raceStart, raceEnd } = await fetchLive()
+    const { rows, raceStart, raceEnd } = await fetchLive(raceType)
     setRows(rows); setRaceStart(raceStart); setRaceEnd(raceEnd)
     setLoading(false); setLastUpdate(new Date())
   }
@@ -282,25 +286,28 @@ function LiveTab() {
         {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString()}` : ''}
       </div>
       {rows.length === 0
-        ? <EmptyState message="No finishers yet. Check back soon!" />
-        : rows.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} placements={computePlacements(row, indAll, teamAll)} />)
+        ? <EmptyState message={raceStart ? "No finishers yet. Check back soon!" : "Race hasn't started yet."} />
+        : rows.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} raceType={raceType} placements={computePlacements(row, indAll, teamAll)} />)
       }
     </div>
   )
 }
 
-function FinalTab({ settings }) {
+function FinalTab({ raceType, settings }) {
   const [ind, setInd] = useState([])
   const [teams, setTeams] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    setLoading(true)
     async function load() {
-      const { data: ev } = await supabase.from('race_events').select('ts').eq('event_type', 'start').order('ts', { ascending: false }).limit(1)
+      const { data: ev } = await supabase.from('race_events').select('ts')
+        .eq('race_type', raceType).eq('event_type', 'start').order('ts', { ascending: false }).limit(1)
       const raceStart = ev?.[0]?.ts || null
 
       const { data: indT } = await supabase.from('timing_records')
-        .select('*, participants(*)').not('finish_time', 'is', null).eq('dnf', false).is('team_color', null)
+        .select('*, participants(*)').eq('race_type', raceType)
+        .not('finish_time', 'is', null).eq('dnf', false).is('team_color', null)
       const indRows = (indT || [])
         .filter(r => !r.participants?.exclude_from_results)
         .map(r => ({
@@ -313,11 +320,11 @@ function FinalTab({ settings }) {
       setInd(indRows)
 
       const { data: teamT } = await supabase.from('timing_records').select('*')
-        .not('finish_time', 'is', null).eq('dnf', false).not('team_color', 'is', null)
+        .eq('race_type', raceType).not('finish_time', 'is', null).eq('dnf', false).not('team_color', 'is', null)
       const teamColors = (teamT || []).map(r => r.team_color)
       let tmMap = {}
       if (teamColors.length > 0) {
-        const { data } = await supabase.from('participants').select('*').in('team_color', teamColors)
+        const { data } = await supabase.from('participants').select('*').in('team_color', teamColors).eq('race_type', raceType)
         if (data) data.forEach(p => {
           if (!tmMap[p.team_color]) tmMap[p.team_color] = []
           tmMap[p.team_color].push(p)
@@ -339,9 +346,11 @@ function FinalTab({ settings }) {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [raceType])
 
-  if (!settings.results_released) {
+  const released = settings[RELEASE_FIELD[raceType]]
+
+  if (!released) {
     return <EmptyState message="Final results will be announced shortly. Stay tuned!" />
   }
   if (loading) return <EmptyState message="Loading..." />
@@ -356,25 +365,25 @@ function FinalTab({ settings }) {
       {top3Overall.length > 0 && (
         <>
           <SectionLabel>Top 3 Overall</SectionLabel>
-          {top3Overall.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} placements={computePlacements(row, ind, teams)} />)}
+          {top3Overall.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} raceType={raceType} placements={computePlacements(row, ind, teams)} />)}
         </>
       )}
       {top3Men.length > 0 && (
         <>
           <SectionLabel>Top 3 Men</SectionLabel>
-          {top3Men.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} placements={computePlacements(row, ind, teams)} />)}
+          {top3Men.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} raceType={raceType} placements={computePlacements(row, ind, teams)} />)}
         </>
       )}
       {top3Women.length > 0 && (
         <>
           <SectionLabel>Top 3 Women</SectionLabel>
-          {top3Women.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} placements={computePlacements(row, ind, teams)} />)}
+          {top3Women.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} raceType={raceType} placements={computePlacements(row, ind, teams)} />)}
         </>
       )}
       {teams.length > 0 && (
         <>
           <SectionLabel>Teams</SectionLabel>
-          {teams.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} placements={computePlacements(row, ind, teams)} />)}
+          {teams.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} raceType={raceType} placements={computePlacements(row, ind, teams)} />)}
         </>
       )}
       {AGE_GROUPS.map(group => {
@@ -383,7 +392,7 @@ function FinalTab({ settings }) {
         return (
           <div key={group}>
             <SectionLabel>Age Group — {group}</SectionLabel>
-            {rows.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} placements={[]} />)}
+            {rows.map((row, i) => <ResultCard key={row.id} rank={i + 1} row={row} raceType={raceType} placements={[]} />)}
           </div>
         )
       })}
@@ -397,6 +406,7 @@ function FinalTab({ settings }) {
 // ── Main ──
 
 export default function PublicResults() {
+  const [raceType, setRaceType] = useState('trail')
   const [tab, setTab] = useState('live')
   const [settings, setSettings] = useState(null)
   const navigate = useNavigate()
@@ -417,9 +427,27 @@ export default function PublicResults() {
         <button className="btn btn-ghost btn-sm" onClick={() => navigate('/')}>Home</button>
       </div>
 
+      {/* Race switcher */}
+      <div style={{ display: 'flex', gap: 8, padding: '14px 16px 0' }}>
+        {RACE_TYPES.map(rt => (
+          <button
+            key={rt.value}
+            onClick={() => setRaceType(rt.value)}
+            style={{
+              flex: 1, padding: '10px 8px', borderRadius: 10, fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+              border: `1px solid ${raceType === rt.value ? 'var(--accent)' : 'var(--border)'}`,
+              background: raceType === rt.value ? 'var(--accent)' : 'var(--surface)',
+              color: raceType === rt.value ? '#0f1117' : 'var(--text)',
+            }}
+          >
+            {rt.label}
+          </button>
+        ))}
+      </div>
+
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 100px' }}>
-        {tab === 'live'  && <LiveTab />}
-        {tab === 'final' && settings && <FinalTab settings={settings} />}
+        {tab === 'live'  && <LiveTab raceType={raceType} />}
+        {tab === 'final' && settings && <FinalTab raceType={raceType} settings={settings} />}
         {tab === 'final' && !settings && <EmptyState message="Loading..." />}
       </div>
 

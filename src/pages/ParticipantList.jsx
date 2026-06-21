@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { teamColorStyle, TEAM_COLORS } from '../lib/utils'
+import { teamColorStyle, TEAM_COLORS, RACE_TYPES, raceTypeLabel } from '../lib/utils'
 
 const SORT_OPTIONS = [
   { value: 'race_number_asc',   label: 'Number (Low to High)' },
@@ -39,6 +39,7 @@ export default function ParticipantList() {
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
+  const [filterRace, setFilterRace] = useState('all')
   const [filterCI, setFilterCI] = useState('all')
   const [filterPaid, setFilterPaid] = useState('all')
   const [filterBib, setFilterBib] = useState('all')
@@ -57,6 +58,7 @@ export default function ParticipantList() {
 
   function applyFilters(list) {
     return list.filter(p => {
+      if (filterRace   !== 'all' && p.race_type !== filterRace) return false
       if (filterCI     !== 'all' && String(p.checked_in) !== filterCI) return false
       if (filterPaid   !== 'all' && String(p.paid) !== filterPaid) return false
       if (filterBib    !== 'all' && String(p.received_bib) !== filterBib) return false
@@ -70,10 +72,10 @@ export default function ParticipantList() {
   }
 
   const filtered = sortParticipants(applyFilters(participants), sortKey)
-  const activeFilters = [filterCI, filterPaid, filterBib, filterGender, filterType].filter(f => f !== 'all').length
+  const activeFilters = [filterRace, filterCI, filterPaid, filterBib, filterGender, filterType].filter(f => f !== 'all').length
 
   function resetFilters() {
-    setFilterCI('all'); setFilterPaid('all'); setFilterBib('all')
+    setFilterRace('all'); setFilterCI('all'); setFilterPaid('all'); setFilterBib('all')
     setFilterGender('all'); setFilterType('all'); setSearch(''); setSortKey('race_number_asc')
   }
 
@@ -95,6 +97,10 @@ export default function ParticipantList() {
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
+        <select style={sel} value={filterRace} onChange={e => setFilterRace(e.target.value)}>
+          <option value="all">All Races</option>
+          {RACE_TYPES.map(rt => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
+        </select>
         <select style={sel} value={filterCI} onChange={e => setFilterCI(e.target.value)}>
           <option value="all">All Check-In</option>
           <option value="true">Checked In</option>
@@ -139,13 +145,13 @@ export default function ParticipantList() {
             <table>
               <thead>
                 <tr>
-                  <th>#</th><th>Name</th><th>Age</th><th>Age Group</th><th>Gender</th>
+                  <th>#</th><th>Name</th><th>Race</th><th>Age</th><th>Age Group</th><th>Gender</th>
                   <th>Team</th><th>Size</th><th>Registered</th><th>Paid</th><th>Checked In</th><th>Bib</th><th></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={12} className="text-muted" style={{ padding: 20, textAlign: 'center' }}>
+                  <tr><td colSpan={13} className="text-muted" style={{ padding: 20, textAlign: 'center' }}>
                     No participants match the current filters.
                   </td></tr>
                 )}
@@ -160,6 +166,7 @@ export default function ParticipantList() {
                         </div>
                       )}
                     </td>
+                    <td style={{ fontSize: '0.8rem', fontWeight: 600 }}>{raceTypeLabel(p.race_type)}</td>
                     <td>{p.age}</td>
                     <td style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>{p.age_group || '—'}</td>
                     <td style={{ textTransform: 'capitalize' }}>{p.gender}</td>

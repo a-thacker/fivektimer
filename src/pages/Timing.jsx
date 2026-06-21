@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { formatDuration, diffMs, teamColorStyle, TEAM_COLORS, runnerStatus } from '../lib/utils'
+import { formatDuration, diffMs, teamColorStyle, TEAM_COLORS, runnerStatus, raceTypeLabel } from '../lib/utils'
 import ConfirmModal from '../components/ConfirmModal'
 import ResetConfirmModal from '../components/ResetConfirmModal'
 
 export default function Timing() {
+  const { raceType } = useParams() // 'trail' or 'kids_run'
+  const validType = raceType === 'trail' || raceType === 'kids_run'
+
   const [participants, setParticipants] = useState([])
   const [timingMap, setTimingMap]       = useState({}) // key: participant_id OR "team:COLOR"
   const [raceStart, setRaceStart]       = useState(null)
@@ -22,10 +26,11 @@ export default function Timing() {
   }, [])
 
   useEffect(() => {
+    if (!validType) return
     load()
     // Poll every 10s for sync with a second operator device (e.g. entrance + exit)
     const poll = setInterval(async () => {
-      const { data } = await supabase.from('timing_records').select('*')
+      const { data } = await supabase.from('timing_records').select('*').eq('race_type', raceType)
       if (data) {
         const tMap = {}
         data.forEach(r => {
@@ -36,12 +41,14 @@ export default function Timing() {
       }
     }, 10000)
     return () => clearInterval(poll)
-  }, [])
+  }, [raceType])
 
   async function load() {
-    const { data: pData } = await supabase.from('participants').select('*').eq('checked_in', true).order('race_number')
-    const { data: evData } = await supabase.from('race_events').select('*').order('ts', { ascending: false })
-    const { data: tData }  = await supabase.from('timing_records').select('*')
+    const { data: pData } = await supabase.from('participants').select('*')
+      .eq('race_type', raceType).eq('checked_in', true).order('race_number')
+    const { data: evData } = await supabase.from('race_events').select('*')
+      .eq('race_type', raceType).order('ts', { ascending: false })
+    const { data: tData }  = await supabase.from('timing_records').select('*').eq('race_type', raceType)
 
     setParticipants(pData || [])
 
@@ -63,6 +70,10 @@ export default function Timing() {
         setRaceStart(latest.ts)
         setRaceEnded(false)
       }
+    } else {
+      setRaceStart(null)
+      setRaceEnded(false)
+      setRaceEndTime(null)
     }
     setLoading(false)
     focusSearch()
@@ -135,13 +146,13 @@ export default function Timing() {
 
   async function startRace() {
     const ts = new Date().toISOString()
-    const { error } = await supabase.from('race_events').insert({ event_type: 'start', ts })
+    const { error } = await supabase.from('race_events').insert({ race_type: raceType, event_type: 'start', ts })
     if (error) { alert('Error starting race: ' + error.message); return }
 
     const inserts = []
     allEntries.forEach(entry => {
-      if (entry.type === 'individual') inserts.push({ participant_id: entry.participant.id })
-      else inserts.push({ team_color: entry.color })
+      if (entry.type === 'individual') inserts.push({ participant_id: entry.participant.id, race_type: raceType })
+      else inserts.push({ team_color: entry.color, race_type: raceType })
     })
     if (inserts.length > 0) {
       await supabase.from('timing_records').upsert(inserts, { ignoreDuplicates: true })
@@ -151,7 +162,7 @@ export default function Timing() {
     setConfirm(null)
     focusSearch()
 
-    const { data } = await supabase.from('timing_records').select('*')
+    const { data } = await supabase.from('timing_records').select('*').eq('race_type', raceType)
     const tMap = {}
     if (data) data.forEach(r => {
       if (r.team_color) tMap[`team:${r.team_color}`] = r
@@ -162,7 +173,7 @@ export default function Timing() {
 
   async function endRace() {
     const ts = new Date().toISOString()
-    await supabase.from('race_events').insert({ event_type: 'end', ts })
+    await supabase.from('race_events').insert({ race_type: raceType, event_type: 'end', ts })
     setRaceEnded(true)
     setRaceEndTime(ts)
     setConfirm(null)
@@ -170,8 +181,8 @@ export default function Timing() {
   }
 
   async function resetRace() {
-    await supabase.from('timing_records').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-    await supabase.from('race_events').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    await supabase.from('timing_records').delete().eq('race_type', raceType)
+    await supabase.from('race_events').delete().eq('race_type', raceType)
     setRaceStart(null)
     setRaceEnded(false)
     setRaceEndTime(null)
@@ -240,12 +251,16 @@ export default function Timing() {
     return `${teamColorLabel(entry.color)} Team`
   }
 
+  if (!validType) {
+    return <div className="alert alert-error">Invalid race. Choose Trail Race or Kid's Run timing from the sidebar.</div>
+  }
+
   if (loading) return <div className="text-muted">Loading...</div>
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div className="page-title" style={{ marginBottom: 0 }}>Race Timing</div>
+        <div className="page-title" style={{ marginBottom: 0 }}>{raceTypeLabel(raceType)} — Timing</div>
         <div style={{ flex: 1 }} />
         <div style={{
           padding: '6px 14px', borderRadius: '999px', fontWeight: 700, fontSize: '0.85rem',

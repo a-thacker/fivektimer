@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { formatDuration, diffMs, teamColorStyle, TEAM_COLORS, AGE_GROUPS } from '../lib/utils'
+import { formatDuration, diffMs, teamColorStyle, TEAM_COLORS, AGE_GROUPS, raceTypeLabel } from '../lib/utils'
 
 function Section({ title, children }) {
   return (
@@ -11,15 +12,18 @@ function Section({ title, children }) {
   )
 }
 
-const DEFAULT_CLOCK_CATEGORIES = { overall: true, men: true, women: true, team: false, age_group: false }
+const DEFAULT_CATEGORY_SET = { overall: true, men: true, women: true, team: false, age_group: false }
+const DEFAULT_CLOCK_CATEGORIES = { trail: DEFAULT_CATEGORY_SET, kids_run: DEFAULT_CATEGORY_SET }
 
-function ClockCategoryControls({ settings, setSettings }) {
+function ClockCategoryControls({ raceType, settings, setSettings }) {
   const [saving, setSaving] = useState(false)
-  const categories = settings.clock_display_categories || DEFAULT_CLOCK_CATEGORIES
+  const allCategories = settings.clock_display_categories || DEFAULT_CLOCK_CATEGORIES
+  const categories = allCategories[raceType] || DEFAULT_CATEGORY_SET
 
   async function toggle(key) {
     setSaving(true)
-    const next = { ...categories, [key]: !categories[key] }
+    const nextForRace = { ...categories, [key]: !categories[key] }
+    const next = { ...allCategories, [raceType]: nextForRace }
     const { error } = await supabase.from('app_settings').update({ clock_display_categories: next }).eq('id', 1)
     if (!error) setSettings(s => ({ ...s, clock_display_categories: next }))
     setSaving(false)
@@ -37,7 +41,7 @@ function ClockCategoryControls({ settings, setSettings }) {
     <div className="card" style={{ marginBottom: 24 }}>
       <div className="card-title">TV Clock — Category Display</div>
       <p className="text-muted text-sm" style={{ marginTop: -4, marginBottom: 12 }}>
-        Choose which categories appear on the race clock display once results are released. The running clock always shows regardless of these settings.
+        Choose which categories appear on the {raceTypeLabel(raceType)} clock display once results are released. The running clock always shows regardless of these settings.
       </p>
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
         {OPTIONS.map(opt => (
@@ -104,12 +108,14 @@ function TeamsTable({ rows }) {
   )
 }
 
-async function loadResults() {
-  const { data: ev } = await supabase.from('race_events').select('ts').eq('event_type', 'start').order('ts', { ascending: false }).limit(1)
+async function loadResults(raceType) {
+  const { data: ev } = await supabase.from('race_events').select('ts')
+    .eq('race_type', raceType).eq('event_type', 'start').order('ts', { ascending: false }).limit(1)
   const raceStart = ev?.[0]?.ts || null
 
   const { data: indT } = await supabase.from('timing_records')
-    .select('*, participants(*)').not('finish_time', 'is', null).eq('dnf', false).is('team_color', null)
+    .select('*, participants(*)').eq('race_type', raceType)
+    .not('finish_time', 'is', null).eq('dnf', false).is('team_color', null)
 
   const indRows = (indT || [])
     .filter(r => !r.participants?.exclude_from_results)
@@ -124,12 +130,12 @@ async function loadResults() {
     })).sort((a, b) => (a.totalMs ?? Infinity) - (b.totalMs ?? Infinity))
 
   const { data: teamT } = await supabase.from('timing_records').select('*')
-    .not('finish_time', 'is', null).eq('dnf', false).not('team_color', 'is', null)
+    .eq('race_type', raceType).not('finish_time', 'is', null).eq('dnf', false).not('team_color', 'is', null)
 
   const teamColors = (teamT || []).map(r => r.team_color)
   let teamMembersMap = {}
   if (teamColors.length > 0) {
-    const { data } = await supabase.from('participants').select('*').in('team_color', teamColors)
+    const { data } = await supabase.from('participants').select('*').in('team_color', teamColors).eq('race_type', raceType)
     if (data) data.forEach(p => {
       if (!teamMembersMap[p.team_color]) teamMembersMap[p.team_color] = []
       teamMembersMap[p.team_color].push(p)
@@ -150,23 +156,30 @@ async function loadResults() {
   return { indRows, teamRows }
 }
 
+const RELEASE_FIELD = { trail: 'trail_results_released', kids_run: 'kids_run_results_released' }
+
 export default function FinalResults() {
+  const { raceType } = useParams()
+  const validType = raceType === 'trail' || raceType === 'kids_run'
+
   const [ind, setInd] = useState([])
   const [teams, setTeams] = useState([])
   const [loading, setLoading] = useState(true)
-  const [settings, setSettings] = useState({ results_released: false, clock_display_categories: DEFAULT_CLOCK_CATEGORIES })
+  const [settings, setSettings] = useState({ trail_results_released: false, kids_run_results_released: false, clock_display_categories: DEFAULT_CLOCK_CATEGORIES })
   const [saving, setSaving] = useState(false)
   const [raceEnded, setRaceEnded] = useState(false)
   const [showAgeGroups, setShowAgeGroups] = useState(false)
 
   useEffect(() => {
-    loadResults().then(({ indRows, teamRows }) => { setInd(indRows); setTeams(teamRows); setLoading(false) })
+    if (!validType) return
+    setLoading(true)
+    loadResults(raceType).then(({ indRows, teamRows }) => { setInd(indRows); setTeams(teamRows); setLoading(false) })
     loadSettings()
     loadRaceStatus()
-  }, [])
+  }, [raceType])
 
   async function loadRaceStatus() {
-    const { data } = await supabase.from('race_events').select('event_type')
+    const { data } = await supabase.from('race_events').select('event_type').eq('race_type', raceType)
     setRaceEnded((data || []).some(e => e.event_type === 'end'))
   }
 
@@ -177,14 +190,20 @@ export default function FinalResults() {
 
   async function toggleRelease() {
     setSaving(true)
-    const newVal = !settings.results_released
-    const { error } = await supabase.from('app_settings').update({ results_released: newVal }).eq('id', 1)
-    if (!error) setSettings(s => ({ ...s, results_released: newVal }))
+    const field = RELEASE_FIELD[raceType]
+    const newVal = !settings[field]
+    const { error } = await supabase.from('app_settings').update({ [field]: newVal }).eq('id', 1)
+    if (!error) setSettings(s => ({ ...s, [field]: newVal }))
     setSaving(false)
+  }
+
+  if (!validType) {
+    return <div className="alert alert-error">Invalid race. Choose Trail Race or Kid's Run final results from the sidebar.</div>
   }
 
   if (loading) return <div className="text-muted">Loading...</div>
 
+  const released = settings[RELEASE_FIELD[raceType]]
   const top3Overall = ind.slice(0, 3)
   const top3OverallIds = new Set(top3Overall.map(r => r.id))
   const top3Men   = ind.filter(r => r.gender === 'male'   && !top3OverallIds.has(r.id)).slice(0, 3)
@@ -192,34 +211,34 @@ export default function FinalResults() {
 
   return (
     <div>
-      <div className="page-title">Final Results</div>
+      <div className="page-title">{raceTypeLabel(raceType)} — Final Results</div>
       <div className="page-sub">Official race results. Use the release button to make results visible to participants.</div>
 
       <div className="card" style={{ marginBottom: 24 }}>
         <div className="card-title">Participant Visibility</div>
         <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '14px 16px' }}>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>Final Results</div>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>{raceTypeLabel(raceType)} Results</div>
           <div style={{ fontSize: '0.82rem', color: 'var(--muted)', marginBottom: 8 }}>
-            {settings.results_released
+            {released
               ? 'Visible to participants on the public results page.'
               : 'Hidden from participants. Release when ready to announce.'}
           </div>
-          {!raceEnded && !settings.results_released && (
+          {!raceEnded && !released && (
             <div className="alert alert-warn" style={{ marginBottom: 8, fontSize: '0.78rem', padding: '6px 10px' }}>
               Race has not ended yet. End the race before releasing results.
             </div>
           )}
           <button
-            className={`btn btn-sm ${settings.results_released ? 'btn-danger' : 'btn-success'}`}
+            className={`btn btn-sm ${released ? 'btn-danger' : 'btn-success'}`}
             onClick={toggleRelease}
-            disabled={saving || (!raceEnded && !settings.results_released)}
+            disabled={saving || (!raceEnded && !released)}
           >
-            {saving ? 'Saving...' : settings.results_released ? 'Hide Results' : 'Release Results'}
+            {saving ? 'Saving...' : released ? 'Hide Results' : 'Release Results'}
           </button>
         </div>
       </div>
 
-      <ClockCategoryControls settings={settings} setSettings={setSettings} />
+      <ClockCategoryControls raceType={raceType} settings={settings} setSettings={setSettings} />
 
       <Section title="Top 3 Overall">
         <ResultsTable rows={top3Overall} />
@@ -237,18 +256,13 @@ export default function FinalResults() {
         </Section>
       )}
 
-      {/* Age groups — collapsible since not every race uses them */}
       <div style={{ marginTop: 28 }}>
-        <button
-          className="btn btn-ghost"
-          onClick={() => setShowAgeGroups(s => !s)}
-        >
+        <button className="btn btn-ghost" onClick={() => setShowAgeGroups(s => !s)}>
           {showAgeGroups ? 'Hide' : 'Show'} Age Group Results
         </button>
       </div>
 
       {showAgeGroups && AGE_GROUPS.map(group => {
-        const groupTop3Ids = new Set() // age group rankings are independent of overall top 3
         const rows = ind.filter(r => r.ageGroup === group).slice(0, 3)
         if (rows.length === 0) return null
         return (

@@ -75,3 +75,15 @@ export function runnerStatus(rec, raceStarted) {
   if (rec.finish_time) return 'Finished'
   return 'Running'
 }
+
+// ── Race types ──
+// Two separate races: 5K Trail Race and 1 Mile Kid's Run.
+// These run independently — separate start/end, timing, and results.
+export const RACE_TYPES = [
+  { value: 'trail',    label: '5K Trail Race' },
+  { value: 'kids_run', label: "1 Mile Kid's Run" },
+]
+
+export function raceTypeLabel(raceType) {
+  return RACE_TYPES.find(r => r.value === raceType)?.label || raceType
+}

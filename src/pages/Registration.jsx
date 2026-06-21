@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { TEAM_COLORS } from '../lib/utils'
+import { TEAM_COLORS, RACE_TYPES } from '../lib/utils'
 import ConfirmModal from '../components/ConfirmModal'
 
 const TSHIRT_SIZES = ['YS', 'YM', 'YL', 'YXL', 'S', 'M', 'L', 'XL']
@@ -10,6 +10,7 @@ const BLANK = {
   first_name: '',
   last_name: '',
   age: '',
+  race_type: 'trail',
   gender: 'male',
   race_number: '',
   paid: false,
@@ -42,6 +43,7 @@ export default function Registration() {
       first_name: data.first_name,
       last_name: data.last_name,
       age: data.age ?? '',
+      race_type: data.race_type,
       gender: data.gender ?? 'male',
       race_number: data.race_number ?? '',
       paid: data.paid,
@@ -58,15 +60,16 @@ export default function Registration() {
     setForm(f => ({ ...f, [field]: value }))
   }
 
-  async function getNextRaceNumber(is_team, team_color) {
+  async function getNextRaceNumber(race_type, is_team, team_color) {
     if (is_team && team_color) {
       const { data: existing } = await supabase
         .from('participants').select('race_number')
-        .eq('team_color', team_color).limit(1)
+        .eq('race_type', race_type).eq('team_color', team_color).limit(1)
       if (existing && existing.length > 0) return existing[0].race_number
     }
     const { data } = await supabase
       .from('participants').select('race_number')
+      .eq('race_type', race_type)
       .order('race_number', { ascending: false }).limit(1)
     return data && data.length > 0 ? data[0].race_number + 1 : 1
   }
@@ -99,6 +102,7 @@ export default function Registration() {
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
       age: Number(form.age),
+      race_type: form.race_type,
       gender: form.gender,
       paid: form.paid,
       received_bib: form.received_bib,
@@ -117,7 +121,7 @@ export default function Registration() {
       if (err) { setError(err.message); return }
       setSuccess('Participant updated.')
     } else {
-      const race_number = await getNextRaceNumber(form.is_team, form.team_color)
+      const race_number = await getNextRaceNumber(form.race_type, form.is_team, form.team_color)
       const { error: err } = await supabase.from('participants').insert({
         ...payload, race_number,
         registration_date: new Date().toISOString().slice(0, 10),
@@ -172,10 +176,21 @@ export default function Registration() {
 
           <div className="form-row">
             <div className="form-group">
+              <label className="form-label">Race *</label>
+              <select className="form-select" value={form.race_type}
+                onChange={e => set('race_type', e.target.value)} disabled={isEdit}>
+                {RACE_TYPES.map(rt => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
+              </select>
+              {isEdit && <p className="text-muted text-sm" style={{ marginTop: 4 }}>Cannot change after registration.</p>}
+            </div>
+            <div className="form-group">
               <label className="form-label">Age *</label>
               <input className="form-input" type="number" min="1" max="120"
                 value={form.age} onChange={e => set('age', e.target.value)} placeholder="34" />
             </div>
+          </div>
+
+          <div className="form-row">
             <div className="form-group">
               <label className="form-label">Gender</label>
               <select className="form-select" value={form.gender} onChange={e => set('gender', e.target.value)}>

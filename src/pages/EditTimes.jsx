@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { formatDuration, diffMs, TEAM_COLORS, teamColorStyle } from '../lib/utils'
+import { formatDuration, diffMs, TEAM_COLORS, teamColorStyle, RACE_TYPES, raceTypeLabel } from '../lib/utils'
 import ConfirmModal from '../components/ConfirmModal'
 
 function toInputVal(iso) {
@@ -78,42 +78,47 @@ function TimingEditor({ entry, raceStart, onSaved }) {
 
 export default function EditTimes() {
   const [entries, setEntries] = useState([])
-  const [raceStart, setRaceStart] = useState(null)
+  const [raceStarts, setRaceStarts] = useState({}) // { trail: ts, kids_run: ts }
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [filterRace, setFilterRace] = useState('all')
   const [expanded, setExpanded] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => { load() }, [refreshKey])
 
   async function load() {
-    const { data: ev } = await supabase.from('race_events').select('ts').eq('event_type', 'start').order('ts', { ascending: false }).limit(1)
-    setRaceStart(ev?.[0]?.ts || null)
+    const { data: evData } = await supabase.from('race_events').select('race_type, ts')
+      .eq('event_type', 'start').order('ts', { ascending: false })
+    const starts = {}
+    if (evData) evData.forEach(e => { if (!starts[e.race_type]) starts[e.race_type] = e.ts })
+    setRaceStarts(starts)
 
-    const { data: pData } = await supabase.from('participants').select('*').order('race_number')
+    const { data: pData } = await supabase.from('participants').select('*').order('race_type').order('race_number')
     const { data: tData } = await supabase.from('timing_records').select('*')
 
     const tByParticipant = {}
     const tByTeam = {}
     if (tData) tData.forEach(r => {
       if (r.participant_id) tByParticipant[r.participant_id] = r
-      if (r.team_color)     tByTeam[r.team_color] = r
+      if (r.team_color)     tByTeam[`${r.team_color}:${r.race_type}`] = r
     })
 
     const built = []
     const seenTeams = new Set()
     ;(pData || []).forEach(p => {
       if (p.is_team && p.team_color) {
-        if (seenTeams.has(p.team_color)) return
-        seenTeams.add(p.team_color)
+        const key = `${p.team_color}:${p.race_type}`
+        if (seenTeams.has(key)) return
+        seenTeams.add(key)
         const colorLabel = TEAM_COLORS.find(c => c.value === p.team_color)?.label || 'Team'
         built.push({
-          id: p.team_color, displayName: `${colorLabel} Team`, raceNumber: p.race_number,
-          isTeam: true, teamColor: p.team_color, timingRecord: tByTeam[p.team_color] || null,
+          id: key, raceType: p.race_type, displayName: `${colorLabel} Team`, raceNumber: p.race_number,
+          isTeam: true, teamColor: p.team_color, timingRecord: tByTeam[key] || null,
         })
       } else {
         built.push({
-          id: p.id, displayName: `${p.first_name} ${p.last_name}`, raceNumber: p.race_number,
+          id: p.id, raceType: p.race_type, displayName: `${p.first_name} ${p.last_name}`, raceNumber: p.race_number,
           isTeam: false, timingRecord: tByParticipant[p.id] || null,
         })
       }
@@ -124,20 +129,29 @@ export default function EditTimes() {
   }
 
   const filtered = entries.filter(e => {
+    if (filterRace !== 'all' && e.raceType !== filterRace) return false
     const q = search.toLowerCase().trim()
     if (!q) return true
     return String(e.raceNumber).includes(q) || e.displayName.toLowerCase().includes(q)
   })
+
+  const sel = { background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', padding: '8px 10px', fontSize: '0.85rem', cursor: 'pointer' }
 
   return (
     <div>
       <div className="page-title">Edit Times</div>
       <div className="page-sub">Search for any participant and edit their recorded finish time. All changes require confirmation.</div>
 
-      <div className="search-bar" style={{ marginBottom: 16 }}>
-        <span className="search-icon">🔍</span>
-        <input className="form-input" style={{ paddingLeft: 36 }} placeholder="Search by number or name..."
-          value={search} onChange={e => setSearch(e.target.value)} autoFocus />
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="search-bar" style={{ flex: 1, minWidth: 200 }}>
+          <span className="search-icon">🔍</span>
+          <input className="form-input" style={{ paddingLeft: 36 }} placeholder="Search by number or name..."
+            value={search} onChange={e => setSearch(e.target.value)} autoFocus />
+        </div>
+        <select style={sel} value={filterRace} onChange={e => setFilterRace(e.target.value)}>
+          <option value="all">All Races</option>
+          {RACE_TYPES.map(rt => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
+        </select>
       </div>
 
       {loading ? (
@@ -147,16 +161,19 @@ export default function EditTimes() {
           {filtered.length === 0 && <div className="text-muted" style={{ padding: '24px 0' }}>No participants found.</div>}
           {filtered.map(entry => (
             <div key={entry.id} className="card" style={{ marginBottom: 10, padding: '14px 18px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', flexWrap: 'wrap' }}
                 onClick={() => setExpanded(expanded === entry.id ? null : entry.id)}>
                 <div style={{ color: 'var(--accent)', fontWeight: 900, fontSize: '1.1rem', minWidth: 36 }}>#{entry.raceNumber}</div>
                 {entry.isTeam
                   ? <span style={teamColorStyle(entry.teamColor)}>{entry.displayName}</span>
                   : <div style={{ fontWeight: 700, fontSize: '1rem' }}>{entry.displayName}</div>
                 }
+                <span className="badge" style={{ background: 'var(--surface2)', color: 'var(--muted)', fontSize: '0.72rem' }}>
+                  {raceTypeLabel(entry.raceType)}
+                </span>
                 {entry.timingRecord?.finish_time && (
                   <span style={{ fontFamily: 'monospace', color: 'var(--success)', fontSize: '0.85rem', fontWeight: 700 }}>
-                    {formatDuration(diffMs(raceStart, entry.timingRecord.finish_time))}
+                    {formatDuration(diffMs(raceStarts[entry.raceType], entry.timingRecord.finish_time))}
                   </span>
                 )}
                 {entry.timingRecord?.dnf && <span className="badge badge-no">DNF</span>}
@@ -165,7 +182,7 @@ export default function EditTimes() {
                 <div style={{ color: 'var(--muted)', fontSize: '1.1rem' }}>{expanded === entry.id ? '▲' : '▼'}</div>
               </div>
               {expanded === entry.id && (
-                <TimingEditor entry={entry} raceStart={raceStart} onSaved={() => { setRefreshKey(k => k + 1); setExpanded(null) }} />
+                <TimingEditor entry={entry} raceStart={raceStarts[entry.raceType]} onSaved={() => { setRefreshKey(k => k + 1); setExpanded(null) }} />
               )}
             </div>
           ))}

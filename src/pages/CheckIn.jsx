@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { teamColorStyle, TEAM_COLORS } from '../lib/utils'
+import { teamColorStyle, TEAM_COLORS, RACE_TYPES, raceTypeLabel } from '../lib/utils'
 
 const SORT_OPTIONS = [
   { value: 'race_number_asc',   label: 'Number (Low → High)' },
@@ -34,9 +34,10 @@ export default function CheckIn() {
   const searchRef = useRef()
   const [participants, setParticipants] = useState([])
   const [loading, setLoading] = useState(true)
-  const [raceStarted, setRaceStarted] = useState(false)
+  const [startedRaceTypes, setStartedRaceTypes] = useState(new Set())
 
   const [search, setSearch] = useState('')
+  const [filterRace, setFilterRace] = useState('all')
   const [filterCI, setFilterCI] = useState('all')
   const [filterPaid, setFilterPaid] = useState('all')
   const [filterBib, setFilterBib] = useState('all')
@@ -54,12 +55,13 @@ export default function CheckIn() {
   }
 
   async function checkRaceStarted() {
-    const { data } = await supabase.from('race_events').select('event_type').eq('event_type', 'start')
-    setRaceStarted((data || []).length > 0)
+    const { data } = await supabase.from('race_events').select('race_type, event_type').eq('event_type', 'start')
+    setStartedRaceTypes(new Set((data || []).map(e => e.race_type)))
   }
 
   function applyFilters(list) {
     return list.filter(p => {
+      if (filterRace   !== 'all' && p.race_type !== filterRace) return false
       if (filterCI     !== 'all' && String(p.checked_in) !== filterCI) return false
       if (filterPaid   !== 'all' && String(p.paid) !== filterPaid) return false
       if (filterBib    !== 'all' && String(p.received_bib) !== filterBib) return false
@@ -73,10 +75,10 @@ export default function CheckIn() {
   }
 
   const filtered = sortList(applyFilters(participants), sortKey)
-  const activeFilters = [filterCI, filterPaid, filterBib, filterGender, filterType].filter(f => f !== 'all').length
+  const activeFilters = [filterRace, filterCI, filterPaid, filterBib, filterGender, filterType].filter(f => f !== 'all').length
 
   function resetFilters() {
-    setFilterCI('all'); setFilterPaid('all'); setFilterBib('all')
+    setFilterRace('all'); setFilterCI('all'); setFilterPaid('all'); setFilterBib('all')
     setFilterGender('all'); setFilterType('all'); setSortKey('race_number_asc')
   }
 
@@ -92,13 +94,17 @@ export default function CheckIn() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <div className="page-title">Check-In</div>
-        <button className="btn btn-primary" disabled={raceStarted} onClick={() => navigate('/app/register')}>
+        <button className="btn btn-primary" disabled={startedRaceTypes.size >= 2} onClick={() => navigate('/app/register')}>
           + Day-of Registration
         </button>
       </div>
       <div className="page-sub">{participants.length} registered · {filtered.length} shown</div>
 
-      {raceStarted && <div className="alert alert-warn">Race has started — registration is locked.</div>}
+      {startedRaceTypes.size > 0 && (
+        <div className="alert alert-warn">
+          {RACE_TYPES.filter(rt => startedRaceTypes.has(rt.value)).map(rt => rt.label).join(' and ')} {startedRaceTypes.size === 1 ? 'has' : 'have'} started — registration for that race is locked.
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
         <div className="search-bar" style={{ flex: 1 }}>
@@ -123,6 +129,10 @@ export default function CheckIn() {
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
           padding: '12px 14px', marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
         }}>
+          <select style={sel} value={filterRace} onChange={e => setFilterRace(e.target.value)}>
+            <option value="all">All Races</option>
+            {RACE_TYPES.map(rt => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
+          </select>
           <select style={sel} value={filterCI} onChange={e => setFilterCI(e.target.value)}>
             <option value="all">All Check-In</option>
             <option value="true">Checked In</option>
@@ -168,13 +178,13 @@ export default function CheckIn() {
             <table>
               <thead>
                 <tr>
-                  <th>#</th><th>Name</th><th>Age</th><th>Team</th><th>Size</th>
+                  <th>#</th><th>Name</th><th>Race</th><th>Age</th><th>Team</th><th>Size</th>
                   <th>Check In</th><th>Paid</th><th>Bib</th><th>Edit</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={9} className="text-muted" style={{ padding: 20, textAlign: 'center' }}>
+                  <tr><td colSpan={10} className="text-muted" style={{ padding: 20, textAlign: 'center' }}>
                     No participants match the current filters.
                   </td></tr>
                 )}
@@ -185,6 +195,7 @@ export default function CheckIn() {
                       <div className="font-bold" style={{ fontSize: '1rem' }}>{p.first_name} {p.last_name}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'capitalize' }}>{p.gender}</div>
                     </td>
+                    <td style={{ fontSize: '0.8rem', fontWeight: 600 }}>{raceTypeLabel(p.race_type)}</td>
                     <td>{p.age}</td>
                     <td>
                       {p.is_team && p.team_color
