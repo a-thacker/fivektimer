@@ -1,108 +1,67 @@
 -- ============================================================
--- 5KTIMER — SUPABASE SETUP SCRIPT (v2 — two separate races)
--- Run this entire file in your Supabase SQL Editor
--- ============================================================
--- Two race types: 'trail' (5K Trail Race) and 'kids_run' (1 Mile Kid's Run).
--- These run as fully separate races, mirroring TriTimer's kids/adult model:
--- separate start/end, separate timing, separate results.
+-- 5K RACE — SUPABASE SETUP (fresh install)
+-- Run this entire file in your Supabase SQL Editor.
+--
+-- One race. No teams, no t-shirts. Public self-registration is locked
+-- down with Row Level Security: the anon key can only INSERT sign-ups
+-- and can never read anyone's data. Public results/clock read through
+-- safe SECURITY DEFINER functions. The organizer app signs in with
+-- Supabase Auth.
+--
+-- (If you already have a 5KTimer database with data, run migration.sql
+--  instead — it converts your existing schema in place.)
 -- ============================================================
 
 -- 1. PARTICIPANTS
 create table if not exists participants (
   id uuid primary key default gen_random_uuid(),
-  race_number integer not null,
+  race_number integer,                    -- assigned by organizer at check-in (public sign-ups start null)
   first_name text not null,
   last_name text not null,
+  email text,
   age integer,
-  age_group text, -- auto-calculated: '14 & Under','15-19','20-29','30-39','40-49','50-59','60-69','70+'
-  race_type text not null check (race_type in ('trail','kids_run')),
-  -- Below fields are kept for compatibility but are currently optional/unused per race format:
+  age_group text,                         -- auto-calculated by trigger
   gender text check (gender in ('male','female','other')),
   registration_date date not null default current_date,
   checked_in boolean not null default false,
   paid boolean not null default false,
   received_bib boolean not null default false,
-  tshirt_size text,
-  is_team boolean not null default false,
-  team_color text,
-  team_role text,
   exclude_from_results boolean not null default false,
+  waiver_accepted boolean not null default false,
+  waiver_accepted_at timestamptz,
   created_at timestamptz not null default now()
 );
 
--- 2. RACE EVENTS (start / end / reset) — now per race_type
+-- 2. RACE EVENTS (start / end)
 create table if not exists race_events (
   id uuid primary key default gen_random_uuid(),
-  race_type text not null check (race_type in ('trail','kids_run')),
   event_type text not null check (event_type in ('start','end','reset')),
   ts timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
 
--- 3. TIMING RECORDS — now per race_type
--- Individuals: one row per participant, keyed by participant_id
--- Teams: one row per team, keyed by team_color + race_type
+-- 3. TIMING RECORDS — one row per participant
 create table if not exists timing_records (
   id uuid primary key default gen_random_uuid(),
-  participant_id uuid references participants(id) on delete cascade,
-  team_color text,
-  race_type text not null check (race_type in ('trail','kids_run')),
+  participant_id uuid not null references participants(id) on delete cascade,
   finish_time timestamptz,
   dnf boolean not null default false,
   created_at timestamptz not null default now(),
-  constraint uq_individual unique (participant_id),
-  constraint uq_team unique (team_color, race_type)
+  constraint uq_individual unique (participant_id)
 );
 
--- 4. APP SETTINGS (single-row config table) — release + clock categories now per race_type
+-- 4. APP SETTINGS (single-row config)
 create table if not exists app_settings (
   id integer primary key default 1,
-  trail_results_released boolean not null default false,
-  kids_run_results_released boolean not null default false,
-  -- Which result categories to show on the TV/Roku race clock once released, per race.
-  -- Shape: { trail: {overall,men,women,team,age_group}, kids_run: {...} }
+  results_released boolean not null default false,
   clock_display_categories jsonb not null default
-    '{"trail":{"overall":true,"men":true,"women":true,"team":false,"age_group":false},
-      "kids_run":{"overall":true,"men":true,"women":true,"team":false,"age_group":false}}'::jsonb,
+    '{"overall":true,"men":true,"women":true,"age_group":false}'::jsonb,
   constraint single_row check (id = 1)
 );
 insert into app_settings (id) values (1) on conflict do nothing;
 
 -- ============================================================
--- MIGRATION — if you already have a v1 5KTimer database, run this
--- block instead of the create-table statements above.
--- ============================================================
--- alter table participants add column if not exists race_type text;
--- update participants set race_type = 'trail' where race_type is null;
--- alter table participants alter column race_type set not null;
--- alter table participants add constraint participants_race_type_check check (race_type in ('trail','kids_run'));
---
--- alter table race_events add column if not exists race_type text;
--- update race_events set race_type = 'trail' where race_type is null;
--- alter table race_events alter column race_type set not null;
--- alter table race_events add constraint race_events_race_type_check check (race_type in ('trail','kids_run'));
---
--- alter table timing_records add column if not exists race_type text;
--- update timing_records set race_type = 'trail' where race_type is null;
--- alter table timing_records alter column race_type set not null;
--- alter table timing_records add constraint timing_records_race_type_check check (race_type in ('trail','kids_run'));
--- alter table timing_records drop constraint if exists uq_team;
--- alter table timing_records add constraint uq_team unique (team_color, race_type);
---
--- alter table app_settings add column if not exists trail_results_released boolean not null default false;
--- alter table app_settings add column if not exists kids_run_results_released boolean not null default false;
--- update app_settings set trail_results_released = results_released where results_released is not null;
--- alter table app_settings drop column if exists results_released;
--- alter table app_settings alter column clock_display_categories set default
---   '{"trail":{"overall":true,"men":true,"women":true,"team":false,"age_group":false},
---     "kids_run":{"overall":true,"men":true,"women":true,"team":false,"age_group":false}}'::jsonb;
--- update app_settings set clock_display_categories =
---   '{"trail":{"overall":true,"men":true,"women":true,"team":false,"age_group":false},
---     "kids_run":{"overall":true,"men":true,"women":true,"team":false,"age_group":false}}'::jsonb
---   where not (clock_display_categories ? 'trail');
-
--- ============================================================
--- AGE GROUP AUTO-CALCULATION FUNCTION
+-- AGE GROUP AUTO-CALCULATION
 -- ============================================================
 create or replace function calc_age_group(p_age integer)
 returns text language plpgsql immutable as $$
@@ -137,21 +96,101 @@ create trigger trg_set_age_group
 -- INDEXES
 -- ============================================================
 create index if not exists idx_participants_race_number on participants(race_number);
-create index if not exists idx_participants_race_type    on participants(race_type);
-create index if not exists idx_participants_team         on participants(team_color);
-create index if not exists idx_timing_participant         on timing_records(participant_id);
-create index if not exists idx_timing_team                 on timing_records(team_color);
-create index if not exists idx_timing_race_type             on timing_records(race_type);
-create index if not exists idx_events_race_type              on race_events(race_type);
+create index if not exists idx_timing_participant        on timing_records(participant_id);
+create index if not exists idx_events_event_type          on race_events(event_type);
 
 -- ============================================================
--- ROW LEVEL SECURITY — disabled for v1 (no auth)
+-- ROW LEVEL SECURITY
 -- ============================================================
-alter table participants   disable row level security;
-alter table race_events    disable row level security;
-alter table timing_records disable row level security;
-alter table app_settings   disable row level security;
+alter table participants   enable row level security;
+alter table race_events    enable row level security;
+alter table timing_records enable row level security;
+alter table app_settings   enable row level security;
+
+revoke all on participants, race_events, timing_records, app_settings from anon;
+grant  insert on participants to anon;
+grant  all on participants, race_events, timing_records, app_settings to authenticated;
+
+drop policy if exists participants_anon_insert on participants;
+drop policy if exists participants_auth_all    on participants;
+drop policy if exists race_events_auth_all      on race_events;
+drop policy if exists timing_auth_all           on timing_records;
+drop policy if exists app_settings_auth_all     on app_settings;
+
+-- Public self-registration: insert only, safe values enforced.
+create policy participants_anon_insert on participants
+  for insert to anon
+  with check (
+    waiver_accepted = true
+    and race_number is null
+    and coalesce(checked_in, false)           = false
+    and coalesce(paid, false)                 = false
+    and coalesce(received_bib, false)         = false
+    and coalesce(exclude_from_results, false) = false
+    and char_length(coalesce(first_name, '')) between 1 and 80
+    and char_length(coalesce(last_name, ''))  between 1 and 80
+    and char_length(coalesce(email, ''))      between 3 and 200
+    and age between 1 and 120
+  );
+
+-- Organizer (signed in) has full access.
+create policy participants_auth_all on participants   for all to authenticated using (true) with check (true);
+create policy race_events_auth_all  on race_events    for all to authenticated using (true) with check (true);
+create policy timing_auth_all       on timing_records for all to authenticated using (true) with check (true);
+create policy app_settings_auth_all on app_settings   for all to authenticated using (true) with check (true);
 
 -- ============================================================
--- DONE
+-- SAFE PUBLIC-READ FUNCTIONS (SECURITY DEFINER)
+-- Return only finishers + non-personal fields — never emails/roster.
+-- ============================================================
+create or replace function public.get_race_state()
+returns json
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select json_build_object(
+    'start_ts',                (select ts from race_events where event_type = 'start' order by ts desc limit 1),
+    'end_ts',                  (select ts from race_events where event_type = 'end'   order by ts desc limit 1),
+    'results_released',        (select results_released from app_settings where id = 1),
+    'clock_display_categories',(select clock_display_categories from app_settings where id = 1)
+  );
+$$;
+
+create or replace function public.get_finishers()
+returns table (
+  timing_id   uuid,
+  race_number integer,
+  first_name  text,
+  last_name   text,
+  age         integer,
+  age_group   text,
+  gender      text,
+  finish_time timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select t.id, p.race_number, p.first_name, p.last_name, p.age, p.age_group, p.gender, t.finish_time
+  from timing_records t
+  join participants p on p.id = t.participant_id
+  where t.finish_time is not null
+    and t.dnf = false
+    and coalesce(p.exclude_from_results, false) = false
+  order by t.finish_time asc;
+$$;
+
+revoke all on function public.get_race_state() from public;
+revoke all on function public.get_finishers() from public;
+grant execute on function public.get_race_state() to anon, authenticated;
+grant execute on function public.get_finishers() to anon, authenticated;
+
+-- ============================================================
+-- ORGANIZER LOGIN
+-- Create your account in the dashboard:
+--   Authentication → Users → Add user (enable "Auto Confirm User").
+-- Then sign in at /login with that email + password.
 -- ============================================================

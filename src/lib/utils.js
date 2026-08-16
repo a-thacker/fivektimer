@@ -1,3 +1,8 @@
+// ── Race branding ──
+// Single place to rename the event. Used across the organizer app,
+// public results, TV clock, and the public registration page.
+export const RACE_NAME = '5K Race'
+
 // Format milliseconds as H:MM:SS or MM:SS
 export function formatDuration(ms) {
   if (ms == null || ms < 0) return '--:--'
@@ -16,40 +21,6 @@ export function diffMs(start, end) {
   if (!start || !end) return null
   return new Date(end) - new Date(start)
 }
-
-export function teamColorStyle(color) {
-  if (!color) return {}
-  return {
-    background: color,
-    color: isLight(color) ? '#111' : '#fff',
-    padding: '2px 10px',
-    borderRadius: '999px',
-    fontWeight: 700,
-    fontSize: '0.85rem',
-    display: 'inline-block',
-  }
-}
-
-function isLight(hex) {
-  const c = hex.replace('#', '')
-  const r = parseInt(c.substring(0, 2), 16)
-  const g = parseInt(c.substring(2, 4), 16)
-  const b = parseInt(c.substring(4, 6), 16)
-  return (r * 299 + g * 587 + b * 114) / 1000 > 128
-}
-
-export const TEAM_COLORS = [
-  { label: 'Red',    value: '#e53e3e' },
-  { label: 'Blue',   value: '#3182ce' },
-  { label: 'Green',  value: '#38a169' },
-  { label: 'Yellow', value: '#d69e2e' },
-  { label: 'Purple', value: '#805ad5' },
-  { label: 'Orange', value: '#dd6b20' },
-  { label: 'Pink',   value: '#d53f8c' },
-  { label: 'Teal',   value: '#319795' },
-  { label: 'Black',  value: '#1a202c' },
-  { label: 'White',  value: '#e2e8f0' },
-]
 
 export const AGE_GROUPS = [
   '14 & Under', '15-19', '20-29', '30-39', '40-49', '50-59', '60-69', '70+',
@@ -74,16 +45,4 @@ export function runnerStatus(rec, raceStarted) {
   if (rec.dnf) return 'DNF'
   if (rec.finish_time) return 'Finished'
   return 'Running'
-}
-
-// ── Race types ──
-// Two separate races: 5K Trail Race and 1 Mile Kid's Run.
-// These run independently — separate start/end, timing, and results.
-export const RACE_TYPES = [
-  { value: 'trail',    label: '5K Trail Race' },
-  { value: 'kids_run', label: "1 Mile Kid's Run" },
-]
-
-export function raceTypeLabel(raceType) {
-  return RACE_TYPES.find(r => r.value === raceType)?.label || raceType
 }

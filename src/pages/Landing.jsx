@@ -1,5 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
+import { RACE_NAME } from '../lib/utils'
 
 export default function Landing() {
   const navigate = useNavigate()
@@ -34,7 +35,7 @@ export default function Landing() {
           fontSize: '2.6rem', fontWeight: 900, color: 'var(--accent)',
           letterSpacing: '-0.02em', marginBottom: 6,
         }}>
-          5KTimer
+          {RACE_NAME}
         </div>
         <div style={{ color: 'var(--muted)', fontSize: '0.92rem' }}>
           Race day timing and results
@@ -48,6 +49,13 @@ export default function Landing() {
       }}>
         <button
           className="btn btn-primary"
+          style={{ padding: '22px', fontSize: '1.15rem', fontWeight: 700, borderRadius: 12, justifyContent: 'center' }}
+          onClick={() => navigate('/register')}
+        >
+          Register
+        </button>
+        <button
+          className="btn btn-ghost"
           style={{ padding: '22px', fontSize: '1.15rem', fontWeight: 700, borderRadius: 12, justifyContent: 'center' }}
           onClick={() => navigate('/results')}
         >

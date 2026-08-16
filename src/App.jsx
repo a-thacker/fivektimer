@@ -5,6 +5,7 @@ import Landing        from './pages/Landing'
 import OrganizerLogin from './pages/OrganizerLogin'
 import PublicResults  from './pages/PublicResults'
 import RaceClock      from './pages/RaceClock'
+import PublicRegistration from './pages/PublicRegistration'
 
 import RequireAuth     from './components/RequireAuth'
 import Dashboard        from './pages/Dashboard'
@@ -14,14 +15,16 @@ import CheckIn           from './pages/CheckIn'
 import Timing             from './pages/Timing'
 import LiveResults        from './pages/LiveResults'
 import FinalResults       from './pages/FinalResults'
-import PrintResults       from './pages/PrintResults'
 import EditTimes          from './pages/EditTimes'
+
+import { RACE_NAME } from './lib/utils'
+import { supabase } from './lib/supabase'
 
 function Sidebar({ collapsed, onToggle }) {
   const navigate = useNavigate()
 
-  function logout() {
-    sessionStorage.removeItem('organizer_auth')
+  async function logout() {
+    await supabase.auth.signOut()
     navigate('/')
   }
 
@@ -31,7 +34,7 @@ function Sidebar({ collapsed, onToggle }) {
         display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between',
         padding: collapsed ? '20px 0 12px' : '20px 16px 12px',
       }}>
-        {!collapsed && <span>5KTimer</span>}
+        {!collapsed && <span>{RACE_NAME}</span>}
         <button onClick={onToggle} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1rem', padding: '2px 4px', lineHeight: 1, flexShrink: 0 }}>
           {collapsed ? '›' : '‹'}
@@ -46,23 +49,15 @@ function Sidebar({ collapsed, onToggle }) {
           <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/register">Registration</NavLink>
           <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/checkin">Check-In</NavLink>
 
-          <div className="nav-section">5K Trail Race</div>
-          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/timing/trail">Timing</NavLink>
-          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/results/live/trail">Live Results</NavLink>
-          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/results/final/trail">Final Results</NavLink>
-
-          <div className="nav-section">1 Mile Kid's Run</div>
-          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/timing/kids_run">Timing</NavLink>
-          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/results/live/kids_run">Live Results</NavLink>
-          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/results/final/kids_run">Final Results</NavLink>
+          <div className="nav-section">Race</div>
+          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/timing">Timing</NavLink>
+          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/results/live">Live Results</NavLink>
+          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/results/final">Final Results</NavLink>
+          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/results/edit-times">Edit Times</NavLink>
 
           <div className="nav-section">Display</div>
-          <a className="nav-link" href="/clock/trail" target="_blank" rel="noopener noreferrer">TV Clock — Trail</a>
-          <a className="nav-link" href="/clock/kids_run" target="_blank" rel="noopener noreferrer">TV Clock — Kid's Run</a>
-
-          <div className="nav-section">Results</div>
-          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/results/print">Print (Both Races)</NavLink>
-          <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/app/results/edit-times">Edit Times</NavLink>
+          <a className="nav-link" href="/clock" target="_blank" rel="noopener noreferrer">TV Clock</a>
+          <a className="nav-link" href="/register" target="_blank" rel="noopener noreferrer">Public Sign-Up Page</a>
         </nav>
       )}
 
@@ -87,10 +82,9 @@ function OrganizerLayout() {
           <Route path="register/:id"              element={<Registration />} />
           <Route path="participants"              element={<ParticipantList />} />
           <Route path="checkin"                   element={<CheckIn />} />
-          <Route path="timing/:raceType"          element={<Timing />} />
-          <Route path="results/live/:raceType"    element={<LiveResults />} />
-          <Route path="results/final/:raceType"   element={<FinalResults />} />
-          <Route path="results/print"             element={<PrintResults />} />
+          <Route path="timing"                    element={<Timing />} />
+          <Route path="results/live"              element={<LiveResults />} />
+          <Route path="results/final"             element={<FinalResults />} />
           <Route path="results/edit-times"        element={<EditTimes />} />
         </Routes>
       </main>
@@ -101,11 +95,11 @@ function OrganizerLayout() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/"        element={<Landing />} />
-      <Route path="/login"   element={<OrganizerLogin />} />
-      <Route path="/results" element={<PublicResults />} />
-      <Route path="/print"   element={<PrintResults />} />
-      <Route path="/clock/:raceType" element={<RaceClock />} />
+      <Route path="/"         element={<Landing />} />
+      <Route path="/login"    element={<OrganizerLogin />} />
+      <Route path="/register" element={<PublicRegistration />} />
+      <Route path="/results"  element={<PublicResults />} />
+      <Route path="/clock"    element={<RaceClock />} />
 
       <Route path="/app/*" element={
         <RequireAuth>
