@@ -49,6 +49,12 @@ alter table timing_records drop column if exists team_color;
 alter table participants add column if not exists email text;
 alter table participants add column if not exists waiver_accepted boolean not null default false;
 alter table participants add column if not exists waiver_accepted_at timestamptz;
+alter table participants add column if not exists signature text; -- drawn waiver signature (PNG data URL)
+alter table participants add column if not exists student_id text;              -- optional Southern student ID
+alter table participants add column if not exists phone text;
+alter table participants add column if not exists emergency_contact_name text;
+alter table participants add column if not exists allergies text;               -- allergies / limiting physical conditions
+alter table participants add column if not exists guardian_name text;           -- parent/legal guardian (under 18)
 
 -- Public sign-ups arrive without a bib number; the organizer assigns one
 -- at check-in, so race_number must be nullable.

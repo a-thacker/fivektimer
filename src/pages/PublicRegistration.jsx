@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { RACE_NAME } from '../lib/utils'
 
@@ -19,8 +19,10 @@ import { RACE_NAME } from '../lib/utils'
 // privileged fields) via an RLS `with check` policy — the client checks
 // are just a first line of defense.
 //
-// ⚖️  The waiver / privacy text below is a general-purpose template.
-//     Have it reviewed by your own legal counsel before the event.
+// ⚖️  The waiver text below is Southern Adventist University's official
+//     "Release and Indemnity Agreement" (the transportation / self-drive
+//     section is omitted as it does not apply to this on-campus race). A
+//     drawn signature is captured and stored with each registration.
 // ─────────────────────────────────────────────────────────────
 
 const SUGGESTED_MIN_DONATION = '$10'
@@ -43,16 +45,23 @@ const BLANK = {
   email: '',
   age: '',
   gender: '',
+  student_id: '',
+  phone: '',
+  emergency_contact_name: '',
+  allergies: '',
+  guardian_name: '',
 }
 
 export default function PublicRegistration() {
   const [form, setForm] = useState(BLANK)
   const [company, setCompany] = useState('') // honeypot — must stay empty
   const [agree, setAgree] = useState(false)
+  const [signed, setSigned] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
   const mountedAt = useRef(Date.now())
+  const sigRef = useRef(null)
 
   useEffect(() => { document.title = `${RACE_NAME} — Registration` }, [])
 
@@ -66,7 +75,13 @@ export default function PublicRegistration() {
     const age = Number(form.age)
     if (!form.age || Number.isNaN(age) || age < 1 || age > 120) return 'Please enter a valid age.'
     if (!form.gender) return 'Please select a gender.'
-    if (!agree) return 'You must read and accept the waiver to register.'
+    if (!form.phone.trim()) return 'Please enter a phone number.'
+    if (!form.emergency_contact_name.trim()) return 'Please enter an emergency contact name.'
+    if (Number(form.age) < 18 && !form.guardian_name.trim()) {
+      return 'Participant is under 18 — please enter the parent or legal guardian’s name.'
+    }
+    if (!agree) return 'You must agree and consent to the waiver to register.'
+    if (!signed || sigRef.current?.isEmpty?.()) return 'Please sign your name in the signature box below.'
     return ''
   }
 
@@ -83,6 +98,8 @@ export default function PublicRegistration() {
     const msg = validate()
     if (msg) { setError(msg); return }
 
+    const signature = sigRef.current?.toDataURL?.() || null
+
     setSubmitting(true)
     // NOTE: no .select() here — the insert returns nothing, so the public
     // (anon) role never needs read access to the participants table.
@@ -92,8 +109,14 @@ export default function PublicRegistration() {
       email: form.email.trim().toLowerCase().slice(0, 200),
       age: Number(form.age),
       gender: form.gender,
+      student_id: form.student_id.trim().slice(0, 40) || null,
+      phone: form.phone.trim().slice(0, 40),
+      emergency_contact_name: form.emergency_contact_name.trim().slice(0, 120),
+      allergies: form.allergies.trim().slice(0, 1000) || null,
+      guardian_name: Number(form.age) < 18 ? form.guardian_name.trim().slice(0, 120) : null,
       waiver_accepted: true,
       waiver_accepted_at: new Date().toISOString(),
+      signature,
     })
     setSubmitting(false)
 
@@ -121,7 +144,7 @@ export default function PublicRegistration() {
             </div>
             <button
               className="btn btn-ghost"
-              onClick={() => { setForm(BLANK); setAgree(false); setCompany(''); mountedAt.current = Date.now(); setDone(false) }}
+              onClick={() => { setForm(BLANK); setAgree(false); setSigned(false); sigRef.current?.clear?.(); setCompany(''); mountedAt.current = Date.now(); setDone(false) }}
             >
               Register another person
             </button>
@@ -182,6 +205,45 @@ export default function PublicRegistration() {
               </div>
             </div>
 
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Phone *</label>
+                <input className="form-input" type="tel" value={form.phone} maxLength={40}
+                  autoComplete="tel" inputMode="tel"
+                  onChange={e => set('phone', e.target.value)} placeholder="(555) 123-4567" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Student ID <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(if applicable)</span></label>
+                <input className="form-input" value={form.student_id} maxLength={40}
+                  onChange={e => set('student_id', e.target.value)} placeholder="Optional" />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Emergency Contact Name *</label>
+              <input className="form-input" value={form.emergency_contact_name} maxLength={120}
+                autoComplete="name"
+                onChange={e => set('emergency_contact_name', e.target.value)} placeholder="Contact in case of emergency" />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                Please list any allergies or past/present physical conditions that could limit your participation in any way
+              </label>
+              <textarea className="form-input" value={form.allergies} maxLength={1000} rows={3}
+                style={{ resize: 'vertical' }}
+                onChange={e => set('allergies', e.target.value)} placeholder="Leave blank if none" />
+            </div>
+
+            {Number(form.age) > 0 && Number(form.age) < 18 && (
+              <div className="form-group">
+                <label className="form-label">Name of Parent or Legal Guardian *</label>
+                <input className="form-input" value={form.guardian_name} maxLength={120}
+                  autoComplete="name"
+                  onChange={e => set('guardian_name', e.target.value)} placeholder="Required for participants under 18" />
+              </div>
+            )}
+
             {/* Honeypot: hidden from real users, catches bots. */}
             <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: 'auto', width: 1, height: 1, overflow: 'hidden' }}>
               <label>Company
@@ -191,14 +253,29 @@ export default function PublicRegistration() {
 
             <WaiverBox />
 
-            <label className="checkbox-label" style={{ alignItems: 'flex-start', marginTop: 14, marginBottom: 18 }}>
+            <label className="checkbox-label" style={{ alignItems: 'flex-start', marginTop: 14, marginBottom: 16 }}>
               <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} style={{ marginTop: 3 }} />
               <span style={{ fontSize: '0.9rem', lineHeight: 1.4 }}>
-                I have read and agree to the <strong>Waiver &amp; Release of Liability</strong> and the
-                collection of my information as described in the Privacy Notice above. If the participant
-                is under 18, I confirm I am their parent or legal guardian and agree on their behalf.
+                I agree and voluntarily consent to be bound by its contents by signing below.
               </span>
             </label>
+
+            <div className="form-group" style={{ marginBottom: 18 }}>
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Signature *</span>
+                <button type="button" className="btn btn-ghost"
+                  style={{ padding: '4px 12px', fontSize: '0.8rem' }}
+                  onClick={() => { sigRef.current?.clear?.(); setSigned(false) }}>
+                  Clear
+                </button>
+              </label>
+              <SignaturePad ref={sigRef} onChange={setSigned} />
+              <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 6 }}>
+                {Number(form.age) > 0 && Number(form.age) < 18
+                  ? 'Participant is under 18 — the signature above must be that of the parent or legal guardian.'
+                  : 'Sign above using your mouse, finger, or stylus.'}
+              </div>
+            </div>
 
             <button type="submit" className="btn btn-primary w-full"
               style={{ padding: '15px', fontSize: '1.05rem', justifyContent: 'center' }}
@@ -228,45 +305,192 @@ function Header() {
   )
 }
 
+// The waiver body is Southern Adventist University's official "Release and
+// Indemnity Agreement" reproduced verbatim. The self-drive / transportation
+// section of the original form is omitted because it does not apply to this
+// on-campus race. Do not alter the wording of the remaining text.
 function WaiverBox() {
+  const p = { marginBottom: 10 }
+  const strong = { ...p, fontWeight: 700, color: 'var(--text)' }
+  const heading = { fontWeight: 800, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.75rem', margin: '16px 0 8px' }
   return (
     <div style={{
       background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-      padding: '14px 16px', marginTop: 6, marginBottom: 4, maxHeight: 220, overflowY: 'auto',
-      fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--muted)',
+      padding: '16px 18px', marginTop: 6, marginBottom: 4, maxHeight: 320, overflowY: 'auto',
+      fontSize: '0.82rem', lineHeight: 1.55, color: 'var(--muted)',
     }}>
-      <div style={{ fontWeight: 800, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.75rem', marginBottom: 8 }}>
-        Waiver &amp; Release of Liability
+      <div style={{ fontWeight: 800, color: 'var(--text)', textAlign: 'center', fontSize: '0.98rem', marginBottom: 8 }}>
+        Release and Indemnity Agreement for Southern Adventist University
       </div>
-      <p style={{ marginBottom: 10 }}>
-        I understand that participating in the {RACE_NAME} (the “Event”) is a potentially hazardous
-        activity and that I should not enter and participate unless I am medically able and properly
-        trained. I assume all risks associated with participating, including but not limited to falls,
-        contact with other participants, the effects of the weather, traffic, and course conditions.
+      <p style={{ ...p, textAlign: 'center' }}>
+        This form must be filled out prior to participating the requested activity.
       </p>
-      <p style={{ marginBottom: 10 }}>
-        In consideration of being permitted to participate, I, for myself and anyone entitled to act on
-        my behalf, waive and release the Event organizers, sponsors, volunteers, and all associated
-        parties from any and all claims or liabilities of any kind arising out of my participation,
-        even though that liability may arise out of negligence or carelessness on the part of the
-        persons named in this waiver.
+      <p style={{ ...p, textAlign: 'center' }}>
+        As a student, employee, or volunteer of Southern Adventist University (“the University”), I
+        desire to be allowed to accompany and participate in the following activity:
       </p>
-      <p style={{ marginBottom: 10 }}>
-        I grant permission for the free use of my name, voice, and images in any broadcast, photograph,
-        or other recording of this Event for any legitimate purpose.
+      <p style={{ textAlign: 'center', color: 'var(--text)', fontWeight: 700, marginBottom: 14 }}>
+        {RACE_NAME}
       </p>
-      <div style={{ fontWeight: 800, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.75rem', margin: '14px 0 8px' }}>
-        Privacy Notice
-      </div>
+
+      <p style={p}>
+        Although one or more employees/students of the University may be in charge of the activity, the
+        exposure for risks and harm may be greater than and different from those, which may be
+        anticipated during activities on the University campus. I also recognize that it is not possible
+        to closely supervise and control the activities of those participating in this activity. In
+        consideration of the University permitting me to participate in the above-described activity, I
+        hereby assume the risk of injuries to my person and property while engaged in the activity and
+        release and discharge the University and its officers, directors, employees, and agents from any
+        claims, cause of action, costs, obligations and financial responsibility resulting from or
+        arising out of any incident, injury or accident occurring while I am attending or participating
+        in any such activity, EXCLUDING INTENTIONAL ACTS OR ACTS OF GROSS NEGLIGENCE.
+      </p>
+      <p style={p}>
+        If the University is held financially responsible to the undersigned for any such incident,
+        injury, or accident, I hereby agree to indemnify and hold the University harmless from any such
+        responsibility, including cost, damages, and attorney’s fees incurred by the University.
+      </p>
+      <p style={p}>
+        I will cooperate with those in charge of the activity at all times and will follow the
+        guidelines, if any, set forth for the activity.
+      </p>
+      <p style={p}>
+        I agree to maintain health insurance coverage for myself during, and agree to notify a
+        University representative supervising any such activity of any physical or medical limitations
+        or conditions that will require special assistance or attention. I further authorize supervising
+        University personnel to consent to emergency medical treatment on my behalf, and I hereby
+        release the University and its representatives from liability for any such treatment, its result,
+        or its cost
+      </p>
+      <p style={strong}>
+        NO CHANGES TO THIS FORM SHALL BIND THE UNIVERSITY UNLESS APPROVED BY THE DIRECTOR OF RISK
+        MANAGEMENT.
+      </p>
+      <p style={p}>
+        I agree, for myself and my successors, that the above representations and agreements are
+        contractually binding and are not mere recitals. I agree that my failure or refusal to sign
+        other such agreements or releases shall in no way affect the validity of this agreement nor
+        revoke or cancel any of the terms of this agreement. I agree not to bring any suit in violation
+        of this agreement. I, or any of my successors, shall be liable for the expenses (including legal
+        fees) incurred by the other party or parties in defending against any such claim or suit.
+      </p>
+      <p style={strong}>
+        I affirm that I have read and fully understand this Waiver as set forth above and have had the
+        opportunity to ask any questions that I might have regarding its contents and have done so.
+      </p>
+
+      <div style={heading}>Complete if Participant is a Minor</div>
       <p style={{ marginBottom: 0 }}>
-        We collect your name, email, age, and gender solely to administer the Event (registration,
-        check-in, timing, results, and race-related communication). Your information is stored securely,
-        is never sold, and is not shared except as required to run the Event. You may request deletion of
-        your information by contacting the organizers.
+        PARENT OR GUARDIAN of a minor: I, as parent or guardian of the above-named minor, hereby give my
+        permission for my child or ward to participate in the above-named event, and further agree,
+        individually and on behalf of my child or ward, to the terms of the above, specifically agreeing
+        not to participate in any lawsuit against Southern Adventist University, its officers, directors,
+        employees, and agents.
       </p>
     </div>
   )
 }
+
+// A draw-to-sign signature box (mouse / touch / stylus), like the signature
+// field on the Formstack form. Exposes isEmpty(), clear() and toDataURL()
+// to the parent via ref; calls onChange(true|false) as it gains/loses ink.
+const SignaturePad = forwardRef(function SignaturePad({ onChange }, ref) {
+  const canvasRef = useRef(null)
+  const ctxRef = useRef(null)
+  const drawing = useRef(false)
+  const dirty = useRef(false)
+  const last = useRef(null)
+
+  function init() {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ratio = window.devicePixelRatio || 1
+    const rect = canvas.getBoundingClientRect()
+    canvas.width = Math.max(1, Math.round(rect.width * ratio))
+    canvas.height = Math.max(1, Math.round(rect.height * ratio))
+    const ctx = canvas.getContext('2d')
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, rect.width, rect.height)
+    ctx.lineWidth = 2.4
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = '#0f172a'
+    ctxRef.current = ctx
+  }
+
+  function reset() {
+    init()
+    dirty.current = false
+    onChange && onChange(false)
+  }
+
+  useEffect(() => {
+    init()
+    // Re-scale (and clear) if the layout width changes so ink stays crisp.
+    let t
+    function onResize() { clearTimeout(t); t = setTimeout(reset, 150) }
+    window.addEventListener('resize', onResize)
+    return () => { clearTimeout(t); window.removeEventListener('resize', onResize) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useImperativeHandle(ref, () => ({
+    isEmpty: () => !dirty.current,
+    clear: reset,
+    toDataURL: () => (dirty.current ? canvasRef.current?.toDataURL('image/png') : null),
+  }))
+
+  function posOf(e) {
+    const rect = canvasRef.current.getBoundingClientRect()
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  }
+  function down(e) {
+    e.preventDefault()
+    drawing.current = true
+    const pt = posOf(e)
+    last.current = pt
+    // Draw a dot so a simple tap leaves a visible mark.
+    const ctx = ctxRef.current
+    ctx.beginPath()
+    ctx.moveTo(pt.x, pt.y)
+    ctx.lineTo(pt.x, pt.y)
+    ctx.stroke()
+    if (!dirty.current) { dirty.current = true; onChange && onChange(true) }
+    canvasRef.current.setPointerCapture?.(e.pointerId)
+  }
+  function moveTo(e) {
+    if (!drawing.current) return
+    e.preventDefault()
+    const pt = posOf(e)
+    const ctx = ctxRef.current
+    ctx.beginPath()
+    ctx.moveTo(last.current.x, last.current.y)
+    ctx.lineTo(pt.x, pt.y)
+    ctx.stroke()
+    last.current = pt
+  }
+  function up(e) {
+    if (!drawing.current) return
+    drawing.current = false
+    canvasRef.current.releasePointerCapture?.(e.pointerId)
+  }
+
+  return (
+    <canvas
+      ref={canvasRef}
+      onPointerDown={down}
+      onPointerMove={moveTo}
+      onPointerUp={up}
+      onPointerLeave={up}
+      style={{
+        width: '100%', height: 170, display: 'block',
+        background: '#ffffff', border: '1px solid var(--border)', borderRadius: 12,
+        touchAction: 'none', cursor: 'crosshair',
+      }}
+    />
+  )
+})
 
 function DonationSection() {
   return (

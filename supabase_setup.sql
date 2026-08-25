@@ -29,6 +29,12 @@ create table if not exists participants (
   exclude_from_results boolean not null default false,
   waiver_accepted boolean not null default false,
   waiver_accepted_at timestamptz,
+  signature text,                         -- drawn waiver signature (PNG data URL)
+  student_id text,                        -- optional (Southern student ID)
+  phone text,
+  emergency_contact_name text,
+  allergies text,                         -- allergies / limiting physical conditions
+  guardian_name text,                     -- parent/legal guardian (participants under 18)
   created_at timestamptz not null default now()
 );
 
