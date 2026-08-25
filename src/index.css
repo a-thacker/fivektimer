@@ -180,6 +180,32 @@ a:hover { text-decoration: underline; }
 
 .form-input::placeholder { color: var(--muted); }
 
+/* Invalid field highlight (shown after a premature submit) */
+.form-input.input-error,
+.form-select.input-error {
+  border-color: var(--danger);
+  background: #ff475710;
+}
+.form-input.input-error:focus,
+.form-select.input-error:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(255,71,87,0.15);
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin-top: 5px;
+}
+
+/* Red asterisk marking a required field */
+.req {
+  color: var(--danger);
+  margin-left: 2px;
+  font-weight: 700;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

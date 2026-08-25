@@ -39,6 +39,17 @@ const DONATION_METHODS = [
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_FILL_MS = 2500
 
+// Data-type helpers. Names accept letters (incl. accented), spaces, and the
+// punctuation real names use ('.-). Phones must contain 10–15 digits. Student
+// IDs are numeric.
+const NAME_RE = /^[A-Za-zÀ-ÖØ-öø-ÿ'.\- ]+$/
+const HAS_LETTER = /[A-Za-zÀ-ÖØ-öø-ÿ]/
+const NAME_STRIP = /[^A-Za-zÀ-ÖØ-öø-ÿ'.\- ]/g
+const PHONE_STRIP = /[^\d ()+.\-]/g
+const isName = (s) => NAME_RE.test(s) && HAS_LETTER.test(s)
+const isPhone = (s) => { const d = s.replace(/\D/g, ''); return d.length >= 10 && d.length <= 15 }
+const isStudentId = (s) => /^\d{3,15}$/.test(s)
+
 const BLANK = {
   first_name: '',
   last_name: '',
@@ -57,8 +68,10 @@ export default function PublicRegistration() {
   const [company, setCompany] = useState('') // honeypot — must stay empty
   const [agree, setAgree] = useState(false)
   const [signed, setSigned] = useState(false)
+  const [scrolledWaiver, setScrolledWaiver] = useState(false)
+  const [attempted, setAttempted] = useState(false) // has the form been submitted at least once
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState('') // submission-level error only (network); field errors highlight inline
   const [done, setDone] = useState(false)
   const mountedAt = useRef(Date.now())
   const sigRef = useRef(null)
@@ -68,26 +81,56 @@ export default function PublicRegistration() {
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))
   }
+  const onName = (field, v) => set(field, v.replace(NAME_STRIP, ''))
+  const onPhone = (v) => set('phone', v.replace(PHONE_STRIP, ''))
+  const onDigits = (field, v) => set(field, v.replace(/\D/g, ''))
 
-  function validate() {
-    if (!form.first_name.trim() || !form.last_name.trim()) return 'Please enter your first and last name.'
-    if (!EMAIL_RE.test(form.email.trim())) return 'Please enter a valid email address.'
-    const age = Number(form.age)
-    if (!form.age || Number.isNaN(age) || age < 1 || age > 120) return 'Please enter a valid age.'
-    if (!form.gender) return 'Please select a gender.'
-    if (!form.phone.trim()) return 'Please enter a phone number.'
-    if (!form.emergency_contact_name.trim()) return 'Please enter an emergency contact name.'
-    if (Number(form.age) < 18 && !form.guardian_name.trim()) {
-      return 'Participant is under 18 — please enter the parent or legal guardian’s name.'
+  const age = Number(form.age)
+  const isMinor = form.age !== '' && !Number.isNaN(age) && age >= 1 && age < 18
+
+  // Compute per-field validation messages from the current form state. Because
+  // this runs every render, a field's red highlight clears the moment it
+  // becomes valid.
+  function computeErrors() {
+    const e = {}
+    const fn = form.first_name.trim()
+    if (!fn) e.first_name = 'Enter your first name.'
+    else if (!isName(fn)) e.first_name = 'Use letters only.'
+    const ln = form.last_name.trim()
+    if (!ln) e.last_name = 'Enter your last name.'
+    else if (!isName(ln)) e.last_name = 'Use letters only.'
+    const em = form.email.trim()
+    if (!em) e.email = 'Enter your email address.'
+    else if (!EMAIL_RE.test(em)) e.email = 'Enter a valid email address.'
+    if (!form.age) e.age = 'Enter your age.'
+    else if (Number.isNaN(age) || age < 1 || age > 120) e.age = 'Enter an age from 1–120.'
+    if (!form.gender) e.gender = 'Select a gender.'
+    const ph = form.phone.trim()
+    if (!ph) e.phone = 'Enter a phone number.'
+    else if (!isPhone(ph)) e.phone = 'Enter a valid phone number.'
+    const ec = form.emergency_contact_name.trim()
+    if (!ec) e.emergency_contact_name = 'Enter an emergency contact name.'
+    else if (!isName(ec)) e.emergency_contact_name = 'Use letters only.'
+    const sid = form.student_id.trim()
+    if (sid && !isStudentId(sid)) e.student_id = 'Use numbers only.'
+    if (isMinor) {
+      const gn = form.guardian_name.trim()
+      if (!gn) e.guardian_name = 'Enter the parent or legal guardian’s name.'
+      else if (!isName(gn)) e.guardian_name = 'Use letters only.'
     }
-    if (!agree) return 'You must agree and consent to the waiver to register.'
-    if (!signed || sigRef.current?.isEmpty?.()) return 'Please sign your name in the signature box below.'
-    return ''
+    if (!agree) e.agree = 'You must agree and consent to continue.'
+    if (!signed) e.signature = 'Please sign in the box below.'
+    return e
   }
+
+  const errors = computeErrors()
+  const showErr = (name) => attempted && !!errors[name]
+  const inputCls = (base, name) => base + (showErr(name) ? ' input-error' : '')
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    setAttempted(true)
 
     // Bot traps: honeypot filled, or form submitted implausibly fast.
     if (company.trim() !== '' || Date.now() - mountedAt.current < MIN_FILL_MS) {
@@ -95,8 +138,13 @@ export default function PublicRegistration() {
       return
     }
 
-    const msg = validate()
-    if (msg) { setError(msg); return }
+    if (Object.keys(errors).length) {
+      // Highlight is handled inline; nudge the user to the first problem.
+      setTimeout(() => {
+        document.querySelector('[data-error="true"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 60)
+      return
+    }
 
     const signature = sigRef.current?.toDataURL?.() || null
 
@@ -113,7 +161,7 @@ export default function PublicRegistration() {
       phone: form.phone.trim().slice(0, 40),
       emergency_contact_name: form.emergency_contact_name.trim().slice(0, 120),
       allergies: form.allergies.trim().slice(0, 1000) || null,
-      guardian_name: Number(form.age) < 18 ? form.guardian_name.trim().slice(0, 120) : null,
+      guardian_name: isMinor ? form.guardian_name.trim().slice(0, 120) : null,
       waiver_accepted: true,
       waiver_accepted_at: new Date().toISOString(),
       signature,
@@ -127,6 +175,12 @@ export default function PublicRegistration() {
     setDone(true)
   }
 
+  function resetForm() {
+    setForm(BLANK); setAgree(false); setSigned(false); setScrolledWaiver(false)
+    setAttempted(false); setError(''); sigRef.current?.clear?.(); setCompany('')
+    mountedAt.current = Date.now(); setDone(false)
+  }
+
   const wrap = { minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', padding: '32px 16px 64px' }
   const inner = { width: '100%', maxWidth: 560, margin: '0 auto' }
 
@@ -135,6 +189,7 @@ export default function PublicRegistration() {
       <div style={wrap}>
         <div style={inner}>
           <Header />
+          <DonationSection />
           <div className="card" style={{ textAlign: 'center', padding: '40px 24px' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>✅</div>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 8 }}>You're registered!</div>
@@ -142,14 +197,10 @@ export default function PublicRegistration() {
               Thanks for signing up for the {RACE_NAME}. We'll see you on race day — check in at the
               registration table to pick up your bib number.
             </div>
-            <button
-              className="btn btn-ghost"
-              onClick={() => { setForm(BLANK); setAgree(false); setSigned(false); sigRef.current?.clear?.(); setCompany(''); mountedAt.current = Date.now(); setDone(false) }}
-            >
+            <button className="btn btn-ghost" onClick={resetForm}>
               Register another person
             </button>
           </div>
-          <DonationSection />
           <Footer />
         </div>
       </div>
@@ -160,70 +211,80 @@ export default function PublicRegistration() {
     <div style={wrap}>
       <div style={inner}>
         <Header />
+        <DonationSection />
 
         {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
         <div className="card">
           <form onSubmit={handleSubmit} noValidate>
             <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">First Name *</label>
-                <input className="form-input" value={form.first_name} maxLength={80}
-                  autoComplete="given-name"
-                  onChange={e => set('first_name', e.target.value)} placeholder="Jane" />
+              <div className="form-group" data-error={showErr('first_name') || undefined}>
+                <label className="form-label">First Name<span className="req">*</span></label>
+                <input className={inputCls('form-input', 'first_name')} value={form.first_name} maxLength={80}
+                  autoComplete="given-name" inputMode="text"
+                  onChange={e => onName('first_name', e.target.value)} placeholder="Jane" />
+                {showErr('first_name') && <div className="field-error">{errors.first_name}</div>}
               </div>
-              <div className="form-group">
-                <label className="form-label">Last Name *</label>
-                <input className="form-input" value={form.last_name} maxLength={80}
-                  autoComplete="family-name"
-                  onChange={e => set('last_name', e.target.value)} placeholder="Smith" />
+              <div className="form-group" data-error={showErr('last_name') || undefined}>
+                <label className="form-label">Last Name<span className="req">*</span></label>
+                <input className={inputCls('form-input', 'last_name')} value={form.last_name} maxLength={80}
+                  autoComplete="family-name" inputMode="text"
+                  onChange={e => onName('last_name', e.target.value)} placeholder="Smith" />
+                {showErr('last_name') && <div className="field-error">{errors.last_name}</div>}
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Email *</label>
-              <input className="form-input" type="email" value={form.email} maxLength={200}
+            <div className="form-group" data-error={showErr('email') || undefined}>
+              <label className="form-label">Email<span className="req">*</span></label>
+              <input className={inputCls('form-input', 'email')} type="email" value={form.email} maxLength={200}
                 autoComplete="email" inputMode="email"
                 onChange={e => set('email', e.target.value)} placeholder="jane@example.com" />
+              {showErr('email') && <div className="field-error">{errors.email}</div>}
             </div>
 
             <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Age *</label>
-                <input className="form-input" type="number" min="1" max="120" value={form.age}
-                  inputMode="numeric"
-                  onChange={e => set('age', e.target.value)} placeholder="34" />
+              <div className="form-group" data-error={showErr('age') || undefined}>
+                <label className="form-label">Age<span className="req">*</span></label>
+                <input className={inputCls('form-input', 'age')} type="number" min="1" max="120" value={form.age}
+                  inputMode="numeric" maxLength={3}
+                  onChange={e => onDigits('age', e.target.value)} placeholder="34" />
+                {showErr('age') && <div className="field-error">{errors.age}</div>}
               </div>
-              <div className="form-group">
-                <label className="form-label">Gender *</label>
-                <select className="form-select" value={form.gender} onChange={e => set('gender', e.target.value)}>
+              <div className="form-group" data-error={showErr('gender') || undefined}>
+                <label className="form-label">Gender<span className="req">*</span></label>
+                <select className={inputCls('form-select', 'gender')} value={form.gender} onChange={e => set('gender', e.target.value)}>
                   <option value="">— Select —</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                   <option value="other">Other</option>
                 </select>
+                {showErr('gender') && <div className="field-error">{errors.gender}</div>}
               </div>
             </div>
 
             <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Phone *</label>
-                <input className="form-input" type="tel" value={form.phone} maxLength={40}
+              <div className="form-group" data-error={showErr('phone') || undefined}>
+                <label className="form-label">Phone<span className="req">*</span></label>
+                <input className={inputCls('form-input', 'phone')} type="tel" value={form.phone} maxLength={40}
                   autoComplete="tel" inputMode="tel"
-                  onChange={e => set('phone', e.target.value)} placeholder="(555) 123-4567" />
+                  onChange={e => onPhone(e.target.value)} placeholder="(555) 123-4567" />
+                {showErr('phone') && <div className="field-error">{errors.phone}</div>}
               </div>
-              <div className="form-group">
+              <div className="form-group" data-error={showErr('student_id') || undefined}>
                 <label className="form-label">Student ID <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(if applicable)</span></label>
-                <input className="form-input" value={form.student_id} maxLength={40}
-                  onChange={e => set('student_id', e.target.value)} placeholder="Optional" />
+                <input className={inputCls('form-input', 'student_id')} value={form.student_id} maxLength={40}
+                  inputMode="numeric"
+                  onChange={e => onDigits('student_id', e.target.value)} placeholder="Optional" />
+                {showErr('student_id') && <div className="field-error">{errors.student_id}</div>}
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Emergency Contact Name *</label>
-              <input className="form-input" value={form.emergency_contact_name} maxLength={120}
-                autoComplete="name"
-                onChange={e => set('emergency_contact_name', e.target.value)} placeholder="Contact in case of emergency" />
+            <div className="form-group" data-error={showErr('emergency_contact_name') || undefined}>
+              <label className="form-label">Emergency Contact Name<span className="req">*</span></label>
+              <input className={inputCls('form-input', 'emergency_contact_name')} value={form.emergency_contact_name} maxLength={120}
+                autoComplete="name" inputMode="text"
+                onChange={e => onName('emergency_contact_name', e.target.value)} placeholder="Contact in case of emergency" />
+              {showErr('emergency_contact_name') && <div className="field-error">{errors.emergency_contact_name}</div>}
             </div>
 
             <div className="form-group">
@@ -235,14 +296,19 @@ export default function PublicRegistration() {
                 onChange={e => set('allergies', e.target.value)} placeholder="Leave blank if none" />
             </div>
 
-            {Number(form.age) > 0 && Number(form.age) < 18 && (
-              <div className="form-group">
-                <label className="form-label">Name of Parent or Legal Guardian *</label>
-                <input className="form-input" value={form.guardian_name} maxLength={120}
-                  autoComplete="name"
-                  onChange={e => set('guardian_name', e.target.value)} placeholder="Required for participants under 18" />
-              </div>
-            )}
+            <div className="form-group" data-error={showErr('guardian_name') || undefined}>
+              <label className="form-label">
+                Name of Parent or Legal Guardian
+                {isMinor
+                  ? <span className="req">*</span>
+                  : <span style={{ color: 'var(--muted)', fontWeight: 400 }}> (required if participant is under 18)</span>}
+              </label>
+              <input className={inputCls('form-input', 'guardian_name')} value={form.guardian_name} maxLength={120}
+                autoComplete="name" inputMode="text"
+                onChange={e => onName('guardian_name', e.target.value)}
+                placeholder={isMinor ? 'Required for participants under 18' : 'Only needed if under 18'} />
+              {showErr('guardian_name') && <div className="field-error">{errors.guardian_name}</div>}
+            </div>
 
             {/* Honeypot: hidden from real users, catches bots. */}
             <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: 'auto', width: 1, height: 1, overflow: 'hidden' }}>
@@ -251,30 +317,46 @@ export default function PublicRegistration() {
               </label>
             </div>
 
-            <WaiverBox />
+            <WaiverBox onReachBottom={() => setScrolledWaiver(true)} />
 
-            <label className="checkbox-label" style={{ alignItems: 'flex-start', marginTop: 14, marginBottom: 16 }}>
-              <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} style={{ marginTop: 3 }} />
-              <span style={{ fontSize: '0.9rem', lineHeight: 1.4 }}>
-                I agree and voluntarily consent to be bound by its contents by signing below.
-              </span>
-            </label>
+            {/* The consent checkbox only appears once the reader has scrolled
+                to the bottom of the agreement. */}
+            {!scrolledWaiver ? (
+              <div data-error={(attempted && !agree) || undefined}
+                style={{
+                  marginTop: 12, textAlign: 'center', fontWeight: 600, fontSize: '0.85rem',
+                  color: attempted && !agree ? 'var(--danger)' : 'var(--muted)',
+                }}>
+                ↓ Please scroll to the bottom of the agreement to continue
+              </div>
+            ) : (
+              <div data-error={showErr('agree') || undefined}>
+                <label className="checkbox-label" style={{ alignItems: 'flex-start', marginTop: 14 }}>
+                  <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} style={{ marginTop: 3 }} />
+                  <span style={{ fontSize: '0.9rem', lineHeight: 1.4 }}>
+                    I agree and voluntarily consent to be bound by its contents by signing below.<span className="req">*</span>
+                  </span>
+                </label>
+                {showErr('agree') && <div className="field-error">{errors.agree}</div>}
+              </div>
+            )}
 
-            <div className="form-group" style={{ marginBottom: 18 }}>
+            <div className="form-group" data-error={showErr('signature') || undefined} style={{ marginTop: 18, marginBottom: 18 }}>
               <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Signature *</span>
+                <span>Signature<span className="req">*</span></span>
                 <button type="button" className="btn btn-ghost"
                   style={{ padding: '4px 12px', fontSize: '0.8rem' }}
                   onClick={() => { sigRef.current?.clear?.(); setSigned(false) }}>
                   Clear
                 </button>
               </label>
-              <SignaturePad ref={sigRef} onChange={setSigned} />
+              <SignaturePad ref={sigRef} onChange={setSigned} error={showErr('signature')} />
               <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 6 }}>
-                {Number(form.age) > 0 && Number(form.age) < 18
+                {isMinor
                   ? 'Participant is under 18 — the signature above must be that of the parent or legal guardian.'
                   : 'Sign above using your mouse, finger, or stylus.'}
               </div>
+              {showErr('signature') && <div className="field-error">{errors.signature}</div>}
             </div>
 
             <button type="submit" className="btn btn-primary w-full"
@@ -285,7 +367,6 @@ export default function PublicRegistration() {
           </form>
         </div>
 
-        <DonationSection />
         <Footer />
       </div>
     </div>
@@ -309,12 +390,28 @@ function Header() {
 // Indemnity Agreement" reproduced verbatim. The self-drive / transportation
 // section of the original form is omitted because it does not apply to this
 // on-campus race. Do not alter the wording of the remaining text.
-function WaiverBox() {
+//
+// `onReachBottom` fires once the reader scrolls to the end (or immediately if
+// the text is short enough not to scroll) so the parent can reveal the
+// consent checkbox.
+function WaiverBox({ onReachBottom }) {
+  const boxRef = useRef(null)
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    const check = () => {
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 6) onReachBottom?.()
+    }
+    check() // if the content isn't tall enough to scroll, unlock right away
+    el.addEventListener('scroll', check, { passive: true })
+    return () => el.removeEventListener('scroll', check)
+  }, [onReachBottom])
+
   const p = { marginBottom: 10 }
   const strong = { ...p, fontWeight: 700, color: 'var(--text)' }
   const heading = { fontWeight: 800, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.75rem', margin: '16px 0 8px' }
   return (
-    <div style={{
+    <div ref={boxRef} style={{
       background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
       padding: '16px 18px', marginTop: 6, marginBottom: 4, maxHeight: 320, overflowY: 'auto',
       fontSize: '0.82rem', lineHeight: 1.55, color: 'var(--muted)',
@@ -394,7 +491,11 @@ function WaiverBox() {
 // A draw-to-sign signature box (mouse / touch / stylus), like the signature
 // field on the Formstack form. Exposes isEmpty(), clear() and toDataURL()
 // to the parent via ref; calls onChange(true|false) as it gains/loses ink.
-const SignaturePad = forwardRef(function SignaturePad({ onChange }, ref) {
+//
+// Listeners are attached natively (not via React props) so the touch handlers
+// can be non-passive and call preventDefault() — without that, mobile browsers
+// scroll the page instead of drawing.
+const SignaturePad = forwardRef(function SignaturePad({ onChange, error }, ref) {
   const canvasRef = useRef(null)
   const ctxRef = useRef(null)
   const drawing = useRef(false)
@@ -425,68 +526,90 @@ const SignaturePad = forwardRef(function SignaturePad({ onChange }, ref) {
     onChange && onChange(false)
   }
 
-  useEffect(() => {
-    init()
-    // Re-scale (and clear) if the layout width changes so ink stays crisp.
-    let t
-    function onResize() { clearTimeout(t); t = setTimeout(reset, 150) }
-    window.addEventListener('resize', onResize)
-    return () => { clearTimeout(t); window.removeEventListener('resize', onResize) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   useImperativeHandle(ref, () => ({
     isEmpty: () => !dirty.current,
     clear: reset,
     toDataURL: () => (dirty.current ? canvasRef.current?.toDataURL('image/png') : null),
   }))
 
-  function posOf(e) {
-    const rect = canvasRef.current.getBoundingClientRect()
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
-  }
-  function down(e) {
-    e.preventDefault()
-    drawing.current = true
-    const pt = posOf(e)
-    last.current = pt
-    // Draw a dot so a simple tap leaves a visible mark.
-    const ctx = ctxRef.current
-    ctx.beginPath()
-    ctx.moveTo(pt.x, pt.y)
-    ctx.lineTo(pt.x, pt.y)
-    ctx.stroke()
-    if (!dirty.current) { dirty.current = true; onChange && onChange(true) }
-    canvasRef.current.setPointerCapture?.(e.pointerId)
-  }
-  function moveTo(e) {
-    if (!drawing.current) return
-    e.preventDefault()
-    const pt = posOf(e)
-    const ctx = ctxRef.current
-    ctx.beginPath()
-    ctx.moveTo(last.current.x, last.current.y)
-    ctx.lineTo(pt.x, pt.y)
-    ctx.stroke()
-    last.current = pt
-  }
-  function up(e) {
-    if (!drawing.current) return
-    drawing.current = false
-    canvasRef.current.releasePointerCapture?.(e.pointerId)
-  }
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    init()
+
+    const posOf = (clientX, clientY) => {
+      const rect = canvas.getBoundingClientRect()
+      return { x: clientX - rect.left, y: clientY - rect.top }
+    }
+    const startAt = (x, y) => {
+      drawing.current = true
+      last.current = { x, y }
+      const ctx = ctxRef.current
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y); ctx.stroke() // dot for a tap
+      if (!dirty.current) { dirty.current = true; onChange && onChange(true) }
+    }
+    const moveAt = (x, y) => {
+      if (!drawing.current) return
+      const ctx = ctxRef.current
+      ctx.beginPath(); ctx.moveTo(last.current.x, last.current.y); ctx.lineTo(x, y); ctx.stroke()
+      last.current = { x, y }
+    }
+    const end = () => { drawing.current = false }
+
+    const onMouseDown = (e) => { const p = posOf(e.clientX, e.clientY); startAt(p.x, p.y) }
+    const onMouseMove = (e) => { const p = posOf(e.clientX, e.clientY); moveAt(p.x, p.y) }
+    const onMouseUp = () => end()
+
+    const onTouchStart = (e) => {
+      if (e.touches.length !== 1) return
+      e.preventDefault()
+      const t = e.touches[0]; const p = posOf(t.clientX, t.clientY); startAt(p.x, p.y)
+    }
+    const onTouchMove = (e) => {
+      if (!drawing.current) return
+      e.preventDefault()
+      const t = e.touches[0]; const p = posOf(t.clientX, t.clientY); moveAt(p.x, p.y)
+    }
+    const onTouchEnd = (e) => { e.preventDefault(); end() }
+
+    canvas.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false })
+    canvas.addEventListener('touchend', onTouchEnd, { passive: false })
+    canvas.addEventListener('touchcancel', onTouchEnd, { passive: false })
+
+    // Re-scale (and clear) if the layout width or orientation changes.
+    let t
+    const onResize = () => { clearTimeout(t); t = setTimeout(reset, 150) }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+
+    return () => {
+      canvas.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+      canvas.removeEventListener('touchstart', onTouchStart)
+      canvas.removeEventListener('touchmove', onTouchMove)
+      canvas.removeEventListener('touchend', onTouchEnd)
+      canvas.removeEventListener('touchcancel', onTouchEnd)
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+      clearTimeout(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <canvas
       ref={canvasRef}
-      onPointerDown={down}
-      onPointerMove={moveTo}
-      onPointerUp={up}
-      onPointerLeave={up}
       style={{
         width: '100%', height: 170, display: 'block',
-        background: '#ffffff', border: '1px solid var(--border)', borderRadius: 12,
-        touchAction: 'none', cursor: 'crosshair',
+        background: '#ffffff', borderRadius: 12,
+        border: `1px solid ${error ? 'var(--danger)' : 'var(--border)'}`,
+        touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none', cursor: 'crosshair',
       }}
     />
   )
@@ -494,7 +617,7 @@ const SignaturePad = forwardRef(function SignaturePad({ onChange }, ref) {
 
 function DonationSection() {
   return (
-    <div style={{ marginTop: 32 }}>
+    <div style={{ marginTop: 8, marginBottom: 28 }}>
       <div style={{ textAlign: 'center', marginBottom: 6 }}>
         <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>Support the Race</div>
         <div style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: 4 }}>
