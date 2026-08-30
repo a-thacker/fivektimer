@@ -72,6 +72,7 @@ export default function PublicRegistration() {
   const [error, setError] = useState('') // submission-level error only (network); field errors highlight inline
   const [done, setDone] = useState(false)
   const [showIntro, setShowIntro] = useState(true) // "meaning of the race" modal, auto-opens on load
+  const [showAllergies, setShowAllergies] = useState(false) // optional medical-notes disclosure
   const mountedAt = useRef(Date.now())
   const sigRef = useRef(null)
 
@@ -173,7 +174,11 @@ export default function PublicRegistration() {
     setSubmitting(false)
 
     if (err) {
-      setError('Something went wrong submitting your registration. Please try again.')
+      // Surface the real cause so schema/permission problems are diagnosable
+      // (e.g. a missing column shows up here) instead of a blank "try again".
+      console.error('Registration insert failed:', err)
+      const detail = err.message || err.hint || err.details || ''
+      setError(`We couldn't submit your registration.${detail ? ` (${detail})` : ' Please try again.'}`)
       return
     }
     setDone(true)
@@ -182,7 +187,7 @@ export default function PublicRegistration() {
   function resetForm() {
     setForm(BLANK); setAgree(false); setSigned(false); setScrolledWaiver(false)
     setAttempted(false); setError(''); sigRef.current?.clear?.(); setCompany('')
-    mountedAt.current = Date.now(); setDone(false)
+    setShowAllergies(false); mountedAt.current = Date.now(); setDone(false)
   }
 
   // Solid brand brown for the top ~260px (so the logo art blends), then a
@@ -281,7 +286,7 @@ export default function PublicRegistration() {
                 {showErr('phone') && <div className="field-error">{errors.phone}</div>}
               </div>
               <div className="form-group" data-error={showErr('student_id') || undefined}>
-                <label className="form-label">Student ID <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(if applicable)</span></label>
+                <label className="form-label">Student ID</label>
                 <input className={inputCls('form-input', 'student_id')} value={form.student_id} maxLength={40}
                   inputMode="numeric"
                   onChange={e => onDigits('student_id', e.target.value)} placeholder="Optional" />
@@ -294,7 +299,7 @@ export default function PublicRegistration() {
                 <label className="form-label">Emergency Contact Name<span className="req">*</span></label>
                 <input className={inputCls('form-input', 'emergency_contact_name')} value={form.emergency_contact_name} maxLength={120}
                   autoComplete="name" inputMode="text"
-                  onChange={e => onName('emergency_contact_name', e.target.value)} placeholder="Contact in case of emergency" />
+                  onChange={e => onName('emergency_contact_name', e.target.value)} placeholder="Full name" />
                 {showErr('emergency_contact_name') && <div className="field-error">{errors.emergency_contact_name}</div>}
               </div>
               <div className="form-group" data-error={showErr('emergency_contact_phone') || undefined}>
@@ -306,28 +311,32 @@ export default function PublicRegistration() {
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">
-                Please list any allergies or past/present physical conditions that could limit your participation in any way
-              </label>
-              <textarea className="form-input" value={form.allergies} maxLength={1000} rows={3}
-                style={{ resize: 'vertical' }}
-                onChange={e => set('allergies', e.target.value)} placeholder="Leave blank if none" />
-            </div>
+            {/* Parent/guardian name only appears when the age says it's needed. */}
+            {isMinor && (
+              <div className="form-group" data-error={showErr('guardian_name') || undefined}>
+                <label className="form-label">Name of Parent or Legal Guardian<span className="req">*</span></label>
+                <input className={inputCls('form-input', 'guardian_name')} value={form.guardian_name} maxLength={120}
+                  autoComplete="name" inputMode="text"
+                  onChange={e => onName('guardian_name', e.target.value)}
+                  placeholder="Parent or guardian's full name" />
+                {showErr('guardian_name') && <div className="field-error">{errors.guardian_name}</div>}
+              </div>
+            )}
 
-            <div className="form-group" data-error={showErr('guardian_name') || undefined}>
-              <label className="form-label">
-                Name of Parent or Legal Guardian
-                {isMinor
-                  ? <span className="req">*</span>
-                  : <span style={{ color: 'var(--muted)', fontWeight: 400 }}> (required if participant is under 18)</span>}
-              </label>
-              <input className={inputCls('form-input', 'guardian_name')} value={form.guardian_name} maxLength={120}
-                autoComplete="name" inputMode="text"
-                onChange={e => onName('guardian_name', e.target.value)}
-                placeholder={isMinor ? 'Required for participants under 18' : 'Only needed if under 18'} />
-              {showErr('guardian_name') && <div className="field-error">{errors.guardian_name}</div>}
-            </div>
+            {/* Optional medical notes are tucked away to reduce clutter. */}
+            {!showAllergies ? (
+              <button type="button" className="mtm-disclosure" onClick={() => setShowAllergies(true)}>
+                + Add allergies or medical notes <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional)</span>
+              </button>
+            ) : (
+              <div className="form-group">
+                <label className="form-label">Allergies or medical conditions</label>
+                <textarea className="form-input" value={form.allergies} maxLength={1000} rows={3} autoFocus
+                  style={{ resize: 'vertical' }}
+                  onChange={e => set('allergies', e.target.value)}
+                  placeholder="Anything that could affect your participation" />
+              </div>
+            )}
 
             {/* Honeypot: hidden from real users, catches bots. */}
             <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: 'auto', width: 1, height: 1, overflow: 'hidden' }}>
@@ -460,36 +469,33 @@ function IntroModal({ open, onClose }) {
 
         <img src="/jalen.jpg" alt="Jalen Tamaleaa"
           style={{
-            width: '100%', maxWidth: 250, height: 'auto', borderRadius: 14, display: 'block',
-            margin: '2px auto 14px', border: '1px solid var(--border)',
+            width: '100%', maxWidth: 188, height: 'auto', borderRadius: 14, display: 'block',
+            margin: '0 auto 12px', border: '1px solid var(--border)',
           }} />
 
-        <h2 style={{ textAlign: 'center', fontSize: '1.4rem', fontWeight: 900, marginBottom: 10 }}>
+        <h2 style={{ textAlign: 'center', fontSize: '1.35rem', fontWeight: 900, marginBottom: 8 }}>
           The <span style={{ color: 'var(--accent2)' }}>Mango Tree</span> Run
         </h2>
 
         <p style={{
-          textAlign: 'center', color: 'var(--text)', fontStyle: 'italic', fontSize: '1rem',
-          lineHeight: 1.5, marginBottom: 4,
+          textAlign: 'center', color: 'var(--text)', fontStyle: 'italic', fontSize: '0.98rem',
+          lineHeight: 1.45, marginBottom: 4,
         }}>
           “If I never see you again on this earth, look for me under the biggest mango tree in heaven.”
         </p>
-        <div style={{ textAlign: 'center', color: 'var(--accent2)', fontWeight: 700, fontSize: '0.85rem', marginBottom: 16 }}>
+        <div style={{ textAlign: 'center', color: 'var(--accent2)', fontWeight: 700, fontSize: '0.85rem', marginBottom: 12 }}>
           Jalen Tamaleaa
         </div>
 
-        <p style={para}>
+        <p style={{ ...para, marginBottom: 14 }}>
           We run for Jalen, a teacher and camp counselor who loved kids and lost his life to suicide at 23.
-          His words about the mango tree give this race its name.
-        </p>
-        <p style={para}>
-          Every runner supports <strong style={em}>{FOUNDATION_NAME}</strong> and its work to prevent
-          suicide and bring hope to people struggling with depression.
+          Every runner supports <strong style={em}>{FOUNDATION_NAME}</strong> and its work to prevent suicide
+          and bring hope to those struggling with depression.
         </p>
 
         <div style={{
           background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10,
-          padding: '10px 12px', fontSize: '0.85rem', color: 'var(--text)', marginBottom: 16, lineHeight: 1.5,
+          padding: '10px 12px', fontSize: '0.83rem', color: 'var(--text)', marginBottom: 14, lineHeight: 1.45,
         }}>
           {CRISIS_LINE}
         </div>
