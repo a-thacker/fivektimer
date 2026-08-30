@@ -1,7 +1,9 @@
 // ── Race branding ──
 // Single place to rename the event. Used across the organizer app,
 // public results, TV clock, and the public registration page.
-export const RACE_NAME = 'Miles that Matter'
+// The organizing group is "Miles that Matter"; this year's event is
+// "The Mango Tree Run" (named for Jalen's words about the mango tree).
+export const RACE_NAME = 'The Mango Tree Run'
 
 // Format milliseconds as H:MM:SS or MM:SS
 export function formatDuration(ms) {

@@ -7,11 +7,11 @@
 
 :root {
   /* ── Miles that Matter brand palette ──
-     brown #392C1C · burnt orange #C1552D · olive #968A36 · gold #E6AE30 */
-  --bg:        #2e2214;  /* deep brown page */
-  --surface:   #3a2c1a;  /* cards */
-  --surface2:  #46381f;  /* inputs / panels */
-  --border:    #5c4a2e;  /* warm brown border */
+     brown #392d1c · burnt orange #c1552d · olive #968a36 · gold #e6ae30 */
+  --bg:        #392d1c;  /* brown page — matches the logo artwork so it blends */
+  --surface:   #48391f;  /* cards — raised a step lighter for depth */
+  --surface2:  #2c2113;  /* inputs / panels — recessed a step darker */
+  --border:    #63512f;  /* warm brown border */
   --accent:    #c1552d;  /* burnt orange — primary */
   --accent2:   #e6ae30;  /* gold — highlight / donate CTA */
   --success:   #6ca83a;  /* leaf green */
@@ -112,6 +112,7 @@ a:hover { text-decoration: underline; }
   border-radius: var(--radius-lg);
   padding: 20px 24px;
   margin-bottom: 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
 .card-title {
@@ -173,7 +174,8 @@ a:hover { text-decoration: underline; }
   padding: 10px 14px;
   font-size: 0.95rem;
   outline: none;
-  transition: border-color 0.15s;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.22);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .form-input:focus,

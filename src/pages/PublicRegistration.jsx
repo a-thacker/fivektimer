@@ -31,7 +31,7 @@ import { RACE_NAME } from '../lib/utils'
 // straight to their giving page (an embedded form on their home page).
 const FOUNDATION_NAME = "Jalen's Kids Foundation"
 const FOUNDATION_URL = 'https://www.jalenskidsfoundation.org/'
-const CRISIS_LINE = 'If you or someone you know is struggling, call or text 988 — the Suicide & Crisis Lifeline.'
+const CRISIS_LINE = 'If you or someone you know is struggling, call or text 988, the Suicide and Crisis Lifeline.'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_FILL_MS = 2500
@@ -57,8 +57,6 @@ const BLANK = {
   phone: '',
   emergency_contact_name: '',
   emergency_contact_phone: '',
-  address: '',
-  city_state_zip: '',
   allergies: '',
   guardian_name: '',
 }
@@ -77,7 +75,7 @@ export default function PublicRegistration() {
   const mountedAt = useRef(Date.now())
   const sigRef = useRef(null)
 
-  useEffect(() => { document.title = `${RACE_NAME} — Registration` }, [])
+  useEffect(() => { document.title = `${RACE_NAME} Registration` }, [])
 
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))
@@ -115,8 +113,6 @@ export default function PublicRegistration() {
     const ecp = form.emergency_contact_phone.trim()
     if (!ecp) e.emergency_contact_phone = 'Enter an emergency contact number.'
     else if (!isPhone(ecp)) e.emergency_contact_phone = 'Enter a valid phone number.'
-    if (!form.address.trim()) e.address = 'Enter your address.'
-    if (!form.city_state_zip.trim()) e.city_state_zip = 'Enter your city, state, and ZIP.'
     const sid = form.student_id.trim()
     if (sid && !isStudentId(sid)) e.student_id = 'Use numbers only.'
     if (isMinor) {
@@ -167,8 +163,6 @@ export default function PublicRegistration() {
       phone: form.phone.trim().slice(0, 40),
       emergency_contact_name: form.emergency_contact_name.trim().slice(0, 120),
       emergency_contact_phone: form.emergency_contact_phone.trim().slice(0, 40),
-      address: form.address.trim().slice(0, 200),
-      city_state_zip: form.city_state_zip.trim().slice(0, 120),
       allergies: form.allergies.trim().slice(0, 1000) || null,
       guardian_name: isMinor ? form.guardian_name.trim().slice(0, 120) : null,
       waiver_accepted: true,
@@ -191,7 +185,12 @@ export default function PublicRegistration() {
     mountedAt.current = Date.now(); setDone(false)
   }
 
-  const wrap = { minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', padding: '32px 16px 64px' }
+  // Solid brand brown for the top ~260px (so the logo art blends), then a
+  // gentle darkening toward the bottom to give the page some depth.
+  const wrap = {
+    minHeight: '100vh', color: 'var(--text)', padding: '32px 16px 64px',
+    background: 'linear-gradient(180deg, #392d1c 0, #392d1c 260px, #30261a 100%)',
+  }
   const inner = { width: '100%', maxWidth: 560, margin: '0 auto' }
 
   if (done) {
@@ -204,7 +203,7 @@ export default function PublicRegistration() {
             <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>✅</div>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 8 }}>You're registered!</div>
             <div style={{ color: 'var(--muted)', fontSize: '0.95rem', marginBottom: 24 }}>
-              Thanks for signing up for {RACE_NAME}. We'll see you on race day — check in at the
+              Thanks for signing up for {RACE_NAME}. We'll see you on race day. Check in at the
               registration table to pick up your bib number.
             </div>
             <button className="btn btn-ghost" onClick={resetForm}>
@@ -264,7 +263,7 @@ export default function PublicRegistration() {
               <div className="form-group" data-error={showErr('gender') || undefined}>
                 <label className="form-label">Gender<span className="req">*</span></label>
                 <select className={inputCls('form-select', 'gender')} value={form.gender} onChange={e => set('gender', e.target.value)}>
-                  <option value="">— Select —</option>
+                  <option value="">Select</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                   <option value="other">Other</option>
@@ -305,22 +304,6 @@ export default function PublicRegistration() {
                   onChange={e => onPhone('emergency_contact_phone', e.target.value)} placeholder="(555) 123-4567" />
                 {showErr('emergency_contact_phone') && <div className="field-error">{errors.emergency_contact_phone}</div>}
               </div>
-            </div>
-
-            <div className="form-group" data-error={showErr('address') || undefined}>
-              <label className="form-label">Address<span className="req">*</span></label>
-              <input className={inputCls('form-input', 'address')} value={form.address} maxLength={200}
-                autoComplete="street-address"
-                onChange={e => set('address', e.target.value)} placeholder="123 Main St" />
-              {showErr('address') && <div className="field-error">{errors.address}</div>}
-            </div>
-
-            <div className="form-group" data-error={showErr('city_state_zip') || undefined}>
-              <label className="form-label">City / State / ZIP<span className="req">*</span></label>
-              <input className={inputCls('form-input', 'city_state_zip')} value={form.city_state_zip} maxLength={120}
-                autoComplete="address-level2"
-                onChange={e => set('city_state_zip', e.target.value)} placeholder="Collegedale, TN 37315" />
-              {showErr('city_state_zip') && <div className="field-error">{errors.city_state_zip}</div>}
             </div>
 
             <div className="form-group">
@@ -389,7 +372,7 @@ export default function PublicRegistration() {
               <SignaturePad ref={sigRef} onChange={setSigned} error={showErr('signature')} />
               <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 6 }}>
                 {isMinor
-                  ? 'Participant is under 18 — the signature above must be that of the parent or legal guardian.'
+                  ? 'Participant is under 18, so the signature above must be that of the parent or legal guardian.'
                   : 'Sign above using your mouse, finger, or stylus.'}
               </div>
               {showErr('signature') && <div className="field-error">{errors.signature}</div>}
@@ -413,21 +396,21 @@ function Header() {
   return (
     <div style={{ textAlign: 'center', marginBottom: 18 }}>
       <img src="/mtm-logo.png" alt="Miles that Matter"
-        style={{ width: '100%', maxWidth: 300, height: 'auto', display: 'block', margin: '0 auto' }} />
-      <div style={{ color: 'var(--muted)', fontSize: '0.82rem', marginTop: 8, lineHeight: 1.4 }}>
-        In conjunction with Movement Medicine Club and {FOUNDATION_NAME}
-      </div>
+        style={{ width: '100%', maxWidth: 260, height: 'auto', display: 'block', margin: '0 auto' }} />
       <div style={{
-        color: 'var(--accent2)', fontSize: '0.8rem', fontWeight: 800, marginTop: 12,
-        letterSpacing: '0.1em', textTransform: 'uppercase',
+        color: 'var(--text)', fontSize: '1.85rem', fontWeight: 900, lineHeight: 1.05, marginTop: 6,
+        letterSpacing: '-0.01em',
       }}>
-        Runner Registration
+        The <span style={{ color: 'var(--accent2)' }}>Mango Tree</span> Run
+      </div>
+      <div style={{ color: 'var(--muted)', fontSize: '0.82rem', marginTop: 8, lineHeight: 1.45 }}>
+        Presented by Movement Medicine Club, benefiting {FOUNDATION_NAME}
       </div>
     </div>
   )
 }
 
-// Prominent, always-visible donate call-to-action for the 501(c)(3) — the
+// Prominent, always-visible donate call-to-action for the 501(c)(3): the
 // most accessible path to the foundation's payment options.
 function FoundationDonate() {
   return (
@@ -437,14 +420,14 @@ function FoundationDonate() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
           background: 'var(--accent2)', color: '#2e2214', fontWeight: 800, fontSize: '1.05rem',
           padding: '15px 18px', borderRadius: 12, textDecoration: 'none',
-          boxShadow: '0 2px 0 rgba(0,0,0,0.3)',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.28)',
         }}>
         <span aria-hidden="true" style={{ fontSize: '1.15rem' }}>❤</span>
         Donate to {FOUNDATION_NAME}
       </a>
       <div style={{ color: 'var(--muted)', fontSize: '0.8rem', marginTop: 8, textAlign: 'center', lineHeight: 1.5 }}>
-        A registered <strong style={{ color: 'var(--text)' }}>501(c)(3)</strong> nonprofit. Every mile —
-        and every gift — supports mental-health awareness and suicide prevention.
+        A registered <strong style={{ color: 'var(--text)' }}>501(c)(3)</strong> nonprofit. Your gift
+        supports mental health awareness and suicide prevention.
       </div>
     </div>
   )
@@ -472,33 +455,45 @@ function IntroModal({ open, onClose }) {
         <button onClick={onClose} aria-label="Close" style={{
           position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: '50%',
           border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)',
-          fontSize: '1.2rem', lineHeight: 1, cursor: 'pointer',
+          fontSize: '1.2rem', lineHeight: 1, cursor: 'pointer', zIndex: 1,
         }}>×</button>
-        <img src="/mtm-icon-transparent.png" alt="" style={{ width: 60, height: 60, display: 'block', margin: '2px auto 8px' }} />
-        <h2 style={{ textAlign: 'center', fontSize: '1.3rem', fontWeight: 900, marginBottom: 4 }}>Why we run</h2>
-        <div style={{ textAlign: 'center', color: 'var(--accent2)', fontWeight: 700, fontSize: '0.88rem', marginBottom: 16 }}>
-          A world without suicide or depression
+
+        <img src="/jalen.jpg" alt="Jalen Tamaleaa"
+          style={{
+            width: '100%', maxWidth: 250, height: 'auto', borderRadius: 14, display: 'block',
+            margin: '2px auto 14px', border: '1px solid var(--border)',
+          }} />
+
+        <h2 style={{ textAlign: 'center', fontSize: '1.4rem', fontWeight: 900, marginBottom: 10 }}>
+          The <span style={{ color: 'var(--accent2)' }}>Mango Tree</span> Run
+        </h2>
+
+        <p style={{
+          textAlign: 'center', color: 'var(--text)', fontStyle: 'italic', fontSize: '1rem',
+          lineHeight: 1.5, marginBottom: 4,
+        }}>
+          “If I never see you again on this earth, look for me under the biggest mango tree in heaven.”
+        </p>
+        <div style={{ textAlign: 'center', color: 'var(--accent2)', fontWeight: 700, fontSize: '0.85rem', marginBottom: 16 }}>
+          Jalen Tamaleaa
         </div>
+
         <p style={para}>
-          <strong style={em}>{RACE_NAME}</strong> is a charity run where every mile raises awareness for
-          mental health and suicide prevention — and supports <strong style={em}>{FOUNDATION_NAME}</strong>.
+          We run for Jalen, a teacher and camp counselor who loved kids and lost his life to suicide at 23.
+          His words about the mango tree give this race its name.
         </p>
         <p style={para}>
-          {FOUNDATION_NAME} works to prevent suicide, bring awareness to mental health, and bring hope to
-          those who are struggling with depression.
+          Every runner supports <strong style={em}>{FOUNDATION_NAME}</strong> and its work to prevent
+          suicide and bring hope to people struggling with depression.
         </p>
-        <p style={para}>
-          The foundation honors <strong style={em}>Jalen Douglas Mareko Tamaleaa</strong>, a 23-year-old
-          teacher and camp counselor beloved for his work with kids, who died by suicide on February 28,
-          2022. He once told his campers, <em>“If I never see you again on this earth, look for me under
-          the biggest mango tree in heaven.”</em>
-        </p>
+
         <div style={{
           background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10,
           padding: '10px 12px', fontSize: '0.85rem', color: 'var(--text)', marginBottom: 16, lineHeight: 1.5,
         }}>
           {CRISIS_LINE}
         </div>
+
         <a href={FOUNDATION_URL} target="_blank" rel="noopener noreferrer"
           style={{
             display: 'block', textAlign: 'center', background: 'var(--accent2)', color: '#2e2214',
@@ -507,7 +502,7 @@ function IntroModal({ open, onClose }) {
           ❤ Donate / Learn more
         </a>
         <button onClick={onClose} className="btn btn-primary w-full" style={{ justifyContent: 'center', padding: '13px' }}>
-          Continue to registration
+          Sign me up
         </button>
       </div>
     </div>
@@ -642,7 +637,7 @@ function WaiverBox({ onReachBottom }) {
         and slander), false light and any other personal and/or property rights.
       </p>
       <p style={{ ...strong, marginBottom: 0 }}>
-        ACCEPTED AND AGREED — by checking the box and signing below (as the interviewee or, if the
+        ACCEPTED AND AGREED, by checking the box and signing below (as the interviewee or, if the
         participant is a minor, as parent/legal guardian).
       </p>
     </div>
