@@ -27,16 +27,11 @@ import { RACE_NAME } from '../lib/utils'
 //     signature cover both, and are captured/stored with each registration.
 // ─────────────────────────────────────────────────────────────
 
-const SUGGESTED_MIN_DONATION = '$10'
-
-// Drop your real donation QR images in place of these placeholders.
-// Put the image files in /public (e.g. /public/venmo-qr.png) and set
-// `img` to the path (e.g. img: '/venmo-qr.png').
-const DONATION_METHODS = [
-  { label: 'Venmo',    handle: '@your-venmo',   img: null },
-  { label: 'PayPal',   handle: 'your-paypal',   img: null },
-  { label: 'Cash App', handle: '$your-cashapp', img: null },
-]
+// The race benefits Jalen's Kids Foundation, a 501(c)(3). Donations go
+// straight to their giving page (an embedded form on their home page).
+const FOUNDATION_NAME = "Jalen's Kids Foundation"
+const FOUNDATION_URL = 'https://www.jalenskidsfoundation.org/'
+const CRISIS_LINE = 'If you or someone you know is struggling, call or text 988 — the Suicide & Crisis Lifeline.'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_FILL_MS = 2500
@@ -78,6 +73,7 @@ export default function PublicRegistration() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('') // submission-level error only (network); field errors highlight inline
   const [done, setDone] = useState(false)
+  const [showIntro, setShowIntro] = useState(true) // "meaning of the race" modal, auto-opens on load
   const mountedAt = useRef(Date.now())
   const sigRef = useRef(null)
 
@@ -203,12 +199,12 @@ export default function PublicRegistration() {
       <div style={wrap}>
         <div style={inner}>
           <Header />
-          <DonationSection />
+          <FoundationDonate />
           <div className="card" style={{ textAlign: 'center', padding: '40px 24px' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>✅</div>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 8 }}>You're registered!</div>
             <div style={{ color: 'var(--muted)', fontSize: '0.95rem', marginBottom: 24 }}>
-              Thanks for signing up for the {RACE_NAME}. We'll see you on race day — check in at the
+              Thanks for signing up for {RACE_NAME}. We'll see you on race day — check in at the
               registration table to pick up your bib number.
             </div>
             <button className="btn btn-ghost" onClick={resetForm}>
@@ -223,9 +219,10 @@ export default function PublicRegistration() {
 
   return (
     <div style={wrap}>
+      <IntroModal open={showIntro} onClose={() => setShowIntro(false)} />
       <div style={inner}>
         <Header />
-        <DonationSection />
+        <FoundationDonate />
 
         {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -414,12 +411,104 @@ export default function PublicRegistration() {
 
 function Header() {
   return (
-    <div style={{ textAlign: 'center', marginBottom: 24 }}>
-      <div style={{ fontSize: '1.9rem', fontWeight: 900, color: 'var(--accent)', letterSpacing: '-0.02em' }}>
-        {RACE_NAME}
+    <div style={{ textAlign: 'center', marginBottom: 18 }}>
+      <img src="/mtm-logo.png" alt="Miles that Matter"
+        style={{ width: '100%', maxWidth: 300, height: 'auto', display: 'block', margin: '0 auto' }} />
+      <div style={{ color: 'var(--muted)', fontSize: '0.82rem', marginTop: 8, lineHeight: 1.4 }}>
+        In conjunction with Movement Medicine Club and {FOUNDATION_NAME}
       </div>
-      <div style={{ color: 'var(--muted)', fontSize: '0.95rem', marginTop: 4 }}>
+      <div style={{
+        color: 'var(--accent2)', fontSize: '0.8rem', fontWeight: 800, marginTop: 12,
+        letterSpacing: '0.1em', textTransform: 'uppercase',
+      }}>
         Runner Registration
+      </div>
+    </div>
+  )
+}
+
+// Prominent, always-visible donate call-to-action for the 501(c)(3) — the
+// most accessible path to the foundation's payment options.
+function FoundationDonate() {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <a href={FOUNDATION_URL} target="_blank" rel="noopener noreferrer"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          background: 'var(--accent2)', color: '#2e2214', fontWeight: 800, fontSize: '1.05rem',
+          padding: '15px 18px', borderRadius: 12, textDecoration: 'none',
+          boxShadow: '0 2px 0 rgba(0,0,0,0.3)',
+        }}>
+        <span aria-hidden="true" style={{ fontSize: '1.15rem' }}>❤</span>
+        Donate to {FOUNDATION_NAME}
+      </a>
+      <div style={{ color: 'var(--muted)', fontSize: '0.8rem', marginTop: 8, textAlign: 'center', lineHeight: 1.5 }}>
+        A registered <strong style={{ color: 'var(--text)' }}>501(c)(3)</strong> nonprofit. Every mile —
+        and every gift — supports mental-health awareness and suicide prevention.
+      </div>
+    </div>
+  )
+}
+
+// "Meaning of the race" modal — opens automatically on load, mobile-first,
+// dismissible (X, backdrop, Esc, or the Continue button).
+function IntroModal({ open, onClose }) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow }
+  }, [open, onClose])
+
+  if (!open) return null
+  const para = { color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12, fontSize: '0.92rem' }
+  const em = { color: 'var(--text)' }
+  return (
+    <div className="mtm-modal-overlay" role="dialog" aria-modal="true" aria-label={`About ${RACE_NAME}`}
+      onClick={onClose}>
+      <div className="mtm-modal-sheet" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} aria-label="Close" style={{
+          position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: '50%',
+          border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)',
+          fontSize: '1.2rem', lineHeight: 1, cursor: 'pointer',
+        }}>×</button>
+        <img src="/mtm-icon-transparent.png" alt="" style={{ width: 60, height: 60, display: 'block', margin: '2px auto 8px' }} />
+        <h2 style={{ textAlign: 'center', fontSize: '1.3rem', fontWeight: 900, marginBottom: 4 }}>Why we run</h2>
+        <div style={{ textAlign: 'center', color: 'var(--accent2)', fontWeight: 700, fontSize: '0.88rem', marginBottom: 16 }}>
+          A world without suicide or depression
+        </div>
+        <p style={para}>
+          <strong style={em}>{RACE_NAME}</strong> is a charity run where every mile raises awareness for
+          mental health and suicide prevention — and supports <strong style={em}>{FOUNDATION_NAME}</strong>.
+        </p>
+        <p style={para}>
+          {FOUNDATION_NAME} works to prevent suicide, bring awareness to mental health, and bring hope to
+          those who are struggling with depression.
+        </p>
+        <p style={para}>
+          The foundation honors <strong style={em}>Jalen Douglas Mareko Tamaleaa</strong>, a 23-year-old
+          teacher and camp counselor beloved for his work with kids, who died by suicide on February 28,
+          2022. He once told his campers, <em>“If I never see you again on this earth, look for me under
+          the biggest mango tree in heaven.”</em>
+        </p>
+        <div style={{
+          background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10,
+          padding: '10px 12px', fontSize: '0.85rem', color: 'var(--text)', marginBottom: 16, lineHeight: 1.5,
+        }}>
+          {CRISIS_LINE}
+        </div>
+        <a href={FOUNDATION_URL} target="_blank" rel="noopener noreferrer"
+          style={{
+            display: 'block', textAlign: 'center', background: 'var(--accent2)', color: '#2e2214',
+            fontWeight: 800, padding: '13px', borderRadius: 12, textDecoration: 'none', marginBottom: 10,
+          }}>
+          ❤ Donate / Learn more
+        </a>
+        <button onClick={onClose} className="btn btn-primary w-full" style={{ justifyContent: 'center', padding: '13px' }}>
+          Continue to registration
+        </button>
       </div>
     </div>
   )
@@ -686,43 +775,6 @@ const SignaturePad = forwardRef(function SignaturePad({ onChange, error }, ref) 
     />
   )
 })
-
-function DonationSection() {
-  return (
-    <div style={{ marginTop: 8, marginBottom: 28 }}>
-      <div style={{ textAlign: 'center', marginBottom: 6 }}>
-        <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>Support the Race</div>
-        <div style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: 4 }}>
-          Suggested minimum donation of <strong style={{ color: 'var(--accent)' }}>{SUGGESTED_MIN_DONATION}</strong> —
-          but any amount is welcome and appreciated. Scan a code below to give.
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', marginTop: 16 }}>
-        {DONATION_METHODS.map(m => (
-          <div key={m.label} style={{
-            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16,
-            padding: '16px', width: 150, textAlign: 'center',
-          }}>
-            {m.img ? (
-              <img src={m.img} alt={`${m.label} donation QR code`} style={{ width: 118, height: 118, borderRadius: 8, display: 'block', margin: '0 auto' }} />
-            ) : (
-              <div style={{
-                width: 118, height: 118, margin: '0 auto', borderRadius: 8,
-                border: '2px dashed var(--border)', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', color: 'var(--muted)', fontSize: '0.72rem', padding: 8,
-              }}>
-                QR code<br />coming soon
-              </div>
-            )}
-            <div style={{ fontWeight: 700, marginTop: 10 }}>{m.label}</div>
-            <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 2 }}>{m.handle}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 function Footer() {
   return (

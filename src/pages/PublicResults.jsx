@@ -57,26 +57,26 @@ function downloadResultCard(row, placements = []) {
   const W = 800, H = 280 + placementH
   canvas.width = W; canvas.height = H
   const ctx = canvas.getContext('2d')
-  const accent = '#00d4ff'
+  const accent = '#e6ae30'
 
-  ctx.fillStyle = '#0f1117'; ctx.fillRect(0, 0, W, H)
+  ctx.fillStyle = '#2e2214'; ctx.fillRect(0, 0, W, H)
   ctx.fillStyle = accent; ctx.fillRect(0, 0, 6, H)
 
   ctx.fillStyle = accent
   ctx.font = 'bold 22px system-ui, sans-serif'
   ctx.fillText(RACE_NAME, 32, 44)
-  ctx.fillStyle = '#8892b0'
+  ctx.fillStyle = '#c9b99c'
   ctx.font = '15px system-ui, sans-serif'
   ctx.fillText('Race Result', 32, 68)
 
-  ctx.fillStyle = '#2e3250'; ctx.fillRect(32, 82, W - 64, 1)
+  ctx.fillStyle = '#5c4a2e'; ctx.fillRect(32, 82, W - 64, 1)
 
   if (placements.length > 0) {
     const medalColors = { '1st': '#FFD700', '2nd': '#C0C0C0', '3rd': '#CD7F32' }
     let bx = W - 32
     placements.slice().reverse().forEach(p => {
       const rank = p.split(' ')[0]
-      const bg = medalColors[rank] || '#2e3250'
+      const bg = medalColors[rank] || '#5c4a2e'
       const tw = ctx.measureText(p).width + 20
       bx -= tw + 8
       ctx.fillStyle = bg
@@ -87,7 +87,7 @@ function downloadResultCard(row, placements = []) {
     })
   }
 
-  ctx.fillStyle = '#f0f2ff'
+  ctx.fillStyle = '#f6eede'
   ctx.font = 'bold 32px system-ui, sans-serif'
   ctx.fillText(row.name, 32, 124)
 
@@ -98,11 +98,11 @@ function downloadResultCard(row, placements = []) {
   ctx.fillStyle = accent
   ctx.font = 'bold 52px monospace'
   ctx.fillText(formatDuration(row.totalMs), 32, 220)
-  ctx.fillStyle = '#8892b0'
+  ctx.fillStyle = '#c9b99c'
   ctx.font = '14px system-ui, sans-serif'
   ctx.fillText('Total Time', 32, 242)
 
-  ctx.fillStyle = '#8892b0'
+  ctx.fillStyle = '#c9b99c'
   ctx.font = '12px system-ui, sans-serif'
   ctx.fillText(new Date().toLocaleDateString(), 32, H - 16)
 

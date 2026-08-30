@@ -194,7 +194,7 @@ export default function Timing() {
         <div style={{
           padding: '6px 14px', borderRadius: '999px', fontWeight: 700, fontSize: '0.85rem',
           background: raceStart ? (raceEnded ? 'var(--danger)' : 'var(--success)') : 'var(--surface2)',
-          color: raceStart ? '#0f1117' : 'var(--muted)'
+          color: raceStart ? (raceEnded ? '#fff' : '#2e2214') : 'var(--muted)'
         }}>
           {!raceStart ? 'Waiting for Start' : raceEnded ? 'Race Ended' : 'Race Running'}
         </div>
@@ -260,8 +260,8 @@ export default function Timing() {
                 <div className="participant-age">Age {p.age}</div>
                 <div style={{
                   padding: '3px 12px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700, flexShrink: 0,
-                  background: isDNF ? 'var(--danger)' : isFinished ? 'var(--success)' : raceStart ? '#00d4ff22' : 'var(--surface2)',
-                  color: isDNF ? '#fff' : isFinished ? '#0f1117' : raceStart ? 'var(--accent)' : 'var(--muted)'
+                  background: isDNF ? 'var(--danger)' : isFinished ? 'var(--success)' : raceStart ? 'rgba(193,85,45,0.2)' : 'var(--surface2)',
+                  color: isDNF ? '#fff' : isFinished ? '#2e2214' : raceStart ? 'var(--accent)' : 'var(--muted)'
                 }}>
                   {status}
                 </div>

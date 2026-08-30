@@ -119,7 +119,7 @@ export default function CheckIn() {
         <button className="btn btn-ghost" style={{ position: 'relative' }} onClick={() => setShowFilters(f => !f)}>
           Filters {activeFilters > 0 && (
             <span style={{
-              position: 'absolute', top: -6, right: -6, background: 'var(--accent)', color: '#0f1117',
+              position: 'absolute', top: -6, right: -6, background: 'var(--accent)', color: '#fff',
               borderRadius: '50%', width: 18, height: 18, fontSize: '0.65rem', fontWeight: 900,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>{activeFilters}</span>

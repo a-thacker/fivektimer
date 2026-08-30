@@ -6,18 +6,21 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #0f1117;
-  --surface:   #1a1d27;
-  --surface2:  #22263a;
-  --border:    #2e3250;
-  --accent:    #00d4ff;
-  --accent2:   #ff6b35;
-  --success:   #00c47a;
-  --danger:    #ff4757;
-  --warning:   #ffd32a;
-  --text:      #f0f2ff;
-  --muted:     #8892b0;
-  --run-color:#00d4ff;
+  /* ── Miles that Matter brand palette ──
+     brown #392C1C · burnt orange #C1552D · olive #968A36 · gold #E6AE30 */
+  --bg:        #2e2214;  /* deep brown page */
+  --surface:   #3a2c1a;  /* cards */
+  --surface2:  #46381f;  /* inputs / panels */
+  --border:    #5c4a2e;  /* warm brown border */
+  --accent:    #c1552d;  /* burnt orange — primary */
+  --accent2:   #e6ae30;  /* gold — highlight / donate CTA */
+  --success:   #6ca83a;  /* leaf green */
+  --danger:    #f04438;  /* clear red (kept distinct from the orange accent) */
+  --warning:   #e6ae30;  /* gold */
+  --text:      #f6eede;  /* warm cream */
+  --muted:     #c9b99c;  /* warm taupe */
+  --run-color: #e6ae30;  /* gold */
+  --brand-olive: #968a36;
 
   --radius:    6px;
   --radius-lg: 12px;
@@ -136,7 +139,7 @@ a:hover { text-decoration: underline; }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
-.btn-primary   { background: var(--accent);   color: #0f1117; }
+.btn-primary   { background: var(--accent);   color: #fff; }
 .btn-success   { background: var(--success);  color: #0f1117; }
 .btn-danger    { background: var(--danger);   color: #fff; }
 .btn-warning   { background: var(--warning);  color: #0f1117; }
@@ -184,7 +187,7 @@ a:hover { text-decoration: underline; }
 .form-input.input-error,
 .form-select.input-error {
   border-color: var(--danger);
-  background: #ff475710;
+  background: rgba(240,68,56,0.08);
 }
 .form-input.input-error:focus,
 .form-select.input-error:focus {
@@ -204,6 +207,33 @@ a:hover { text-decoration: underline; }
   color: var(--danger);
   margin-left: 2px;
   font-weight: 700;
+}
+
+/* ── Intro modal: mobile-first bottom sheet, centered card on desktop ── */
+.mtm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.72);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.mtm-modal-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  padding: 22px 20px calc(22px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+}
+@media (min-width: 640px) {
+  .mtm-modal-overlay { align-items: center; padding: 24px; }
+  .mtm-modal-sheet { border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 }
 
 .form-row {
@@ -380,7 +410,7 @@ tbody td {
 
 .timing-search input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(0,212,255,0.15);
+  box-shadow: 0 0 0 3px rgba(193,85,45,0.18);
 }
 
 .race-controls {
@@ -402,7 +432,7 @@ tbody td {
 
 .participant-timing-row.highlighted {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(0,212,255,0.2);
+  box-shadow: 0 0 0 2px rgba(193,85,45,0.25);
 }
 
 .participant-timing-row.finished {
@@ -507,7 +537,7 @@ tbody td {
 
 .alert-warn  { background: #ffd32a18; border: 1px solid #ffd32a55; color: var(--warning); }
 .alert-error { background: #ff475718; border: 1px solid #ff475755; color: var(--danger);  }
-.alert-info  { background: #00d4ff18; border: 1px solid #00d4ff55; color: var(--accent);  }
+.alert-info  { background: rgba(193,85,45,0.14); border: 1px solid rgba(193,85,45,0.45); color: var(--accent);  }
 .alert-ok    { background: #00c47a18; border: 1px solid #00c47a55; color: var(--success); }
 
 /* ── Results ── */

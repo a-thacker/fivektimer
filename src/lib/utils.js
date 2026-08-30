@@ -1,7 +1,7 @@
 // ── Race branding ──
 // Single place to rename the event. Used across the organizer app,
 // public results, TV clock, and the public registration page.
-export const RACE_NAME = '5K Race'
+export const RACE_NAME = 'Miles that Matter'
 
 // Format milliseconds as H:MM:SS or MM:SS
 export function formatDuration(ms) {
