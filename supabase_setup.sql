@@ -33,8 +33,12 @@ create table if not exists participants (
   student_id text,                        -- optional (Southern student ID)
   phone text,
   emergency_contact_name text,
+  emergency_contact_phone text,
+  address text,
+  city_state_zip text,
   allergies text,                         -- allergies / limiting physical conditions
   guardian_name text,                     -- parent/legal guardian (participants under 18)
+  photo_release_accepted boolean not null default false,  -- Individual Release Form (photo/media)
   created_at timestamptz not null default now()
 );
 

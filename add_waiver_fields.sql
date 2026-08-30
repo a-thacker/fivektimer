@@ -12,5 +12,9 @@ alter table participants add column if not exists signature text;               
 alter table participants add column if not exists student_id text;              -- optional Southern student ID
 alter table participants add column if not exists phone text;
 alter table participants add column if not exists emergency_contact_name text;
+alter table participants add column if not exists emergency_contact_phone text;
+alter table participants add column if not exists address text;
+alter table participants add column if not exists city_state_zip text;
 alter table participants add column if not exists allergies text;               -- allergies / limiting physical conditions
 alter table participants add column if not exists guardian_name text;           -- parent/legal guardian (participants under 18)
+alter table participants add column if not exists photo_release_accepted boolean not null default false; -- Individual Release Form (photo/media)

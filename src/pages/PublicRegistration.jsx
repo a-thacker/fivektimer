@@ -19,10 +19,12 @@ import { RACE_NAME } from '../lib/utils'
 // privileged fields) via an RLS `with check` policy — the client checks
 // are just a first line of defense.
 //
-// ⚖️  The waiver text below is Southern Adventist University's official
-//     "Release and Indemnity Agreement" (the transportation / self-drive
-//     section is omitted as it does not apply to this on-campus race). A
-//     drawn signature is captured and stored with each registration.
+// ⚖️  The agreement box below combines two documents the runner must accept:
+//     (1) Southern Adventist University's official "Release and Indemnity
+//     Agreement" (the transportation / self-drive section is omitted as it
+//     does not apply to this on-campus race) and (2) an Individual Release
+//     Form (photo / media release). One consent checkbox + one drawn
+//     signature cover both, and are captured/stored with each registration.
 // ─────────────────────────────────────────────────────────────
 
 const SUGGESTED_MIN_DONATION = '$10'
@@ -59,6 +61,9 @@ const BLANK = {
   student_id: '',
   phone: '',
   emergency_contact_name: '',
+  emergency_contact_phone: '',
+  address: '',
+  city_state_zip: '',
   allergies: '',
   guardian_name: '',
 }
@@ -82,7 +87,7 @@ export default function PublicRegistration() {
     setForm(f => ({ ...f, [field]: value }))
   }
   const onName = (field, v) => set(field, v.replace(NAME_STRIP, ''))
-  const onPhone = (v) => set('phone', v.replace(PHONE_STRIP, ''))
+  const onPhone = (field, v) => set(field, v.replace(PHONE_STRIP, ''))
   const onDigits = (field, v) => set(field, v.replace(/\D/g, ''))
 
   const age = Number(form.age)
@@ -111,6 +116,11 @@ export default function PublicRegistration() {
     const ec = form.emergency_contact_name.trim()
     if (!ec) e.emergency_contact_name = 'Enter an emergency contact name.'
     else if (!isName(ec)) e.emergency_contact_name = 'Use letters only.'
+    const ecp = form.emergency_contact_phone.trim()
+    if (!ecp) e.emergency_contact_phone = 'Enter an emergency contact number.'
+    else if (!isPhone(ecp)) e.emergency_contact_phone = 'Enter a valid phone number.'
+    if (!form.address.trim()) e.address = 'Enter your address.'
+    if (!form.city_state_zip.trim()) e.city_state_zip = 'Enter your city, state, and ZIP.'
     const sid = form.student_id.trim()
     if (sid && !isStudentId(sid)) e.student_id = 'Use numbers only.'
     if (isMinor) {
@@ -160,10 +170,14 @@ export default function PublicRegistration() {
       student_id: form.student_id.trim().slice(0, 40) || null,
       phone: form.phone.trim().slice(0, 40),
       emergency_contact_name: form.emergency_contact_name.trim().slice(0, 120),
+      emergency_contact_phone: form.emergency_contact_phone.trim().slice(0, 40),
+      address: form.address.trim().slice(0, 200),
+      city_state_zip: form.city_state_zip.trim().slice(0, 120),
       allergies: form.allergies.trim().slice(0, 1000) || null,
       guardian_name: isMinor ? form.guardian_name.trim().slice(0, 120) : null,
       waiver_accepted: true,
       waiver_accepted_at: new Date().toISOString(),
+      photo_release_accepted: true,
       signature,
     })
     setSubmitting(false)
@@ -267,7 +281,7 @@ export default function PublicRegistration() {
                 <label className="form-label">Phone<span className="req">*</span></label>
                 <input className={inputCls('form-input', 'phone')} type="tel" value={form.phone} maxLength={40}
                   autoComplete="tel" inputMode="tel"
-                  onChange={e => onPhone(e.target.value)} placeholder="(555) 123-4567" />
+                  onChange={e => onPhone('phone', e.target.value)} placeholder="(555) 123-4567" />
                 {showErr('phone') && <div className="field-error">{errors.phone}</div>}
               </div>
               <div className="form-group" data-error={showErr('student_id') || undefined}>
@@ -279,12 +293,37 @@ export default function PublicRegistration() {
               </div>
             </div>
 
-            <div className="form-group" data-error={showErr('emergency_contact_name') || undefined}>
-              <label className="form-label">Emergency Contact Name<span className="req">*</span></label>
-              <input className={inputCls('form-input', 'emergency_contact_name')} value={form.emergency_contact_name} maxLength={120}
-                autoComplete="name" inputMode="text"
-                onChange={e => onName('emergency_contact_name', e.target.value)} placeholder="Contact in case of emergency" />
-              {showErr('emergency_contact_name') && <div className="field-error">{errors.emergency_contact_name}</div>}
+            <div className="form-row">
+              <div className="form-group" data-error={showErr('emergency_contact_name') || undefined}>
+                <label className="form-label">Emergency Contact Name<span className="req">*</span></label>
+                <input className={inputCls('form-input', 'emergency_contact_name')} value={form.emergency_contact_name} maxLength={120}
+                  autoComplete="name" inputMode="text"
+                  onChange={e => onName('emergency_contact_name', e.target.value)} placeholder="Contact in case of emergency" />
+                {showErr('emergency_contact_name') && <div className="field-error">{errors.emergency_contact_name}</div>}
+              </div>
+              <div className="form-group" data-error={showErr('emergency_contact_phone') || undefined}>
+                <label className="form-label">Emergency Contact Number<span className="req">*</span></label>
+                <input className={inputCls('form-input', 'emergency_contact_phone')} type="tel" value={form.emergency_contact_phone} maxLength={40}
+                  inputMode="tel"
+                  onChange={e => onPhone('emergency_contact_phone', e.target.value)} placeholder="(555) 123-4567" />
+                {showErr('emergency_contact_phone') && <div className="field-error">{errors.emergency_contact_phone}</div>}
+              </div>
+            </div>
+
+            <div className="form-group" data-error={showErr('address') || undefined}>
+              <label className="form-label">Address<span className="req">*</span></label>
+              <input className={inputCls('form-input', 'address')} value={form.address} maxLength={200}
+                autoComplete="street-address"
+                onChange={e => set('address', e.target.value)} placeholder="123 Main St" />
+              {showErr('address') && <div className="field-error">{errors.address}</div>}
+            </div>
+
+            <div className="form-group" data-error={showErr('city_state_zip') || undefined}>
+              <label className="form-label">City / State / ZIP<span className="req">*</span></label>
+              <input className={inputCls('form-input', 'city_state_zip')} value={form.city_state_zip} maxLength={120}
+                autoComplete="address-level2"
+                onChange={e => set('city_state_zip', e.target.value)} placeholder="Collegedale, TN 37315" />
+              {showErr('city_state_zip') && <div className="field-error">{errors.city_state_zip}</div>}
             </div>
 
             <div className="form-group">
@@ -477,12 +516,45 @@ function WaiverBox({ onReachBottom }) {
       </p>
 
       <div style={heading}>Complete if Participant is a Minor</div>
-      <p style={{ marginBottom: 0 }}>
+      <p style={p}>
         PARENT OR GUARDIAN of a minor: I, as parent or guardian of the above-named minor, hereby give my
         permission for my child or ward to participate in the above-named event, and further agree,
         individually and on behalf of my child or ward, to the terms of the above, specifically agreeing
         not to participate in any lawsuit against Southern Adventist University, its officers, directors,
         employees, and agents.
+      </p>
+
+      <div style={{ borderTop: '1px solid var(--border)', margin: '18px 0 0' }} />
+      <div style={{ fontWeight: 800, color: 'var(--text)', textAlign: 'center', fontSize: '0.98rem', margin: '14px 0 8px' }}>
+        Individual Release Form
+      </div>
+      <p style={p}>
+        I, the undersigned person, for good and valuable consideration, the receipt and sufficiency of
+        which is hereby acknowledged, has granted permission to Southern Adventist University and your
+        successors, assignees and licensees to use my name, image and likeness as such name and/or
+        likeness appears in photography shot in connection with the motion picture tentatively entitled
+        “{RACE_NAME}” (“Picture”) and in connection with advertising, publicizing, exhibiting and
+        exploiting the Picture, in whole or in part, by any and all means, media, devices, processes and
+        technology now or hereafter known or devised in perpetuity throughout the universe. I hereby
+        acknowledge that you have no obligation to utilize my name and/or likeness in the Picture or in
+        any other motion picture.
+      </p>
+      <p style={p}>
+        Your exercise of such rights shall not violate or infringe any rights of any third party.
+      </p>
+      <p style={p}>
+        I understand that you have been induced to proceed with the production, distribution and
+        exploitation of the Picture in reliance upon this agreement.
+      </p>
+      <p style={p}>
+        I hereby release you, your successors, assignees and licensees from any and all claims and
+        demands arising out of or in connection with such use, including, without limitation, any and all
+        claims for invasion of privacy, infringement of my right of publicity, defamation (including libel
+        and slander), false light and any other personal and/or property rights.
+      </p>
+      <p style={{ ...strong, marginBottom: 0 }}>
+        ACCEPTED AND AGREED — by checking the box and signing below (as the interviewee or, if the
+        participant is a minor, as parent/legal guardian).
       </p>
     </div>
   )
