@@ -413,7 +413,7 @@ function Header() {
         The <span style={{ color: 'var(--accent2)' }}>Mango Tree</span> Run
       </div>
       <div style={{ color: 'var(--muted)', fontSize: '0.82rem', marginTop: 8, lineHeight: 1.45 }}>
-        Presented by Movement Medicine Club, benefiting {FOUNDATION_NAME}
+        Presented by Student Missions Club, benefiting {FOUNDATION_NAME}
       </div>
     </div>
   )
