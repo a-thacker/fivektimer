@@ -5,6 +5,17 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Just Another Hand — used for the logo's secondary/tagline type.
+   It's an organically condensed handwriting face, so pair it with
+   generous letter-spacing wherever it's set (see .mtm-tagline). */
+@font-face {
+  font-family: 'Just Another Hand';
+  src: url('/fonts/JustAnotherHand-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* ── Miles that Matter brand palette ──
      brown #392d1c · burnt orange #c1552d · olive #968a36 · gold #e6ae30 */
@@ -37,6 +48,18 @@ html, body, #root {
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
+
+/* Logo tagline — "Presented by ... benefiting ..." beneath the Mango Tree Run
+   lockup. Set in Just Another Hand and colored gold to echo the logo artwork.
+   The face is naturally condensed, so we open the tracking to let it breathe. */
+.mtm-tagline {
+  font-family: 'Just Another Hand', 'Segoe Script', cursive;
+  color: var(--accent2);
+  font-size: 1.5rem;
+  line-height: 1.15;
+  letter-spacing: 0.06em;
+  margin-top: 6px;
+}
 
 /* ── Layout ── */
 .app-layout {
