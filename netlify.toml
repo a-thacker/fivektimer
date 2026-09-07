@@ -1,3 +1,28 @@
+# ── Security headers ──────────────────────────────────────────────
+# Applied by Netlify's CDN to every response. These protect registrants'
+# PII: they stop the site from being framed (clickjacking), block MIME
+# sniffing, force HTTPS, trim the data other sites can read about visitors,
+# and constrain where the page may load resources / send data from.
+#
+# NOTE: the CSP allows Supabase (API + realtime websocket), self-hosted
+# fonts/scripts/styles, and data:/blob: images (the drawn signature, QR
+# codes). If you add a new external service (analytics, a CDN, a payment
+# widget), you must widen the matching directive or the browser will block
+# it. Verify the live site's console after deploy — CSP only takes effect
+# on Netlify, not in `vite dev` / `vite preview`.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    Cross-Origin-Opener-Policy = "same-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+
+# ── SPA fallback ──────────────────────────────────────────────────
+# React Router owns the routes; every path serves index.html.
 [[redirects]]
   from = "/*"
   to = "/index.html"
