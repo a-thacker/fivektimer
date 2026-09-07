@@ -160,6 +160,15 @@ create policy participants_anon_insert on participants
     and char_length(coalesce(last_name, ''))  between 1 and 80
     and char_length(coalesce(email, ''))      between 3 and 200
     and age between 1 and 120
+    -- Bound every remaining free-text field so a direct API call can't
+    -- store oversized blobs or junk. These match what the form allows.
+    and char_length(coalesce(phone, ''))                   between 7 and 40
+    and char_length(coalesce(emergency_contact_name, ''))  between 1 and 120
+    and char_length(coalesce(emergency_contact_phone, '')) between 7 and 40
+    and char_length(coalesce(student_id, ''))              <= 40
+    and char_length(coalesce(allergies, ''))               <= 2000
+    and char_length(coalesce(guardian_name, ''))           <= 120
+    and char_length(coalesce(signature, ''))               <= 1000000
   );
 
 -- Organizer (signed in) has full access to everything.

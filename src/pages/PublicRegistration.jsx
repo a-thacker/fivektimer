@@ -33,6 +33,10 @@ const FOUNDATION_NAME = "Jalen's Kids Foundation"
 const FOUNDATION_URL = 'https://www.jalenskidsfoundation.org/'
 const CRISIS_LINE = 'If you or someone you know is struggling, call or text 988, the Suicide and Crisis Lifeline.'
 
+// Where runners send privacy / data-deletion requests. Point this at the
+// mailbox the race organizers actually monitor before launch.
+const CONTACT_EMAIL = 'athacker@southern.edu'
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_FILL_MS = 2500
 
@@ -174,11 +178,11 @@ export default function PublicRegistration() {
     setSubmitting(false)
 
     if (err) {
-      // Surface the real cause so schema/permission problems are diagnosable
-      // (e.g. a missing column shows up here) instead of a blank "try again".
+      // Log the real cause for the developer console (schema/permission
+      // problems show up here), but never surface raw database errors to the
+      // public — they can leak column/constraint names. Show a generic note.
       console.error('Registration insert failed:', err)
-      const detail = err.message || err.hint || err.details || ''
-      setError(`We couldn't submit your registration.${detail ? ` (${detail})` : ' Please try again.'}`)
+      setError("We couldn't submit your registration. Please check your details and try again, or contact us if it keeps happening.")
       return
     }
     setDone(true)
@@ -345,6 +349,8 @@ export default function PublicRegistration() {
               </label>
             </div>
 
+            <PrivacyNotice />
+
             <WaiverBox onReachBottom={() => setScrolledWaiver(true)} />
 
             {/* The consent checkbox only appears once the reader has scrolled
@@ -406,10 +412,7 @@ function Header() {
     <div style={{ textAlign: 'center', marginBottom: 18 }}>
       <img src="/mtm-logo.png" alt="Miles that Matter"
         style={{ width: '100%', maxWidth: 260, height: 'auto', display: 'block', margin: '0 auto' }} />
-      <div style={{
-        color: 'var(--text)', fontSize: '1.85rem', fontWeight: 900, lineHeight: 1.05, marginTop: 6,
-        letterSpacing: '-0.01em',
-      }}>
+      <div className="mtm-title">
         The <span style={{ color: 'var(--accent2)' }}>Mango Tree</span> Run
       </div>
       <div className="mtm-tagline">
@@ -777,9 +780,58 @@ const SignaturePad = forwardRef(function SignaturePad({ onChange, error }, ref) 
   )
 })
 
+// Plain-language privacy notice. The runner is handing over real PII
+// (contact details, an emergency contact, optional medical notes, a
+// signature), so we tell them what we collect, why, who sees it, how long
+// we keep it, and how to have it deleted.
+function PrivacyNotice() {
+  const [open, setOpen] = useState(false)
+  const p = { marginBottom: 8 }
+  return (
+    <div style={{
+      background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+      padding: '14px 16px', marginBottom: 16, fontSize: '0.82rem', lineHeight: 1.55, color: 'var(--muted)',
+    }}>
+      <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>Your privacy</div>
+      <p style={p}>
+        We collect the information on this form only to run {RACE_NAME} — to check you in, contact you
+        about the event, keep an emergency contact on hand for race day, and publish finish results
+        (results show only name, age group, gender, and time — never your contact details). Your data
+        is stored securely and is visible only to the race organizers. We do not sell it or share it
+        for marketing.
+      </p>
+      {open && (
+        <>
+          <p style={p}>
+            Optional medical notes and your emergency contact are used solely for your safety during
+            the event. Your signature records your acceptance of the agreement below.
+          </p>
+          <p style={p}>
+            We keep registrations only as long as needed for this event and routine follow-up, then
+            delete them. You can ask us to see or delete your information at any time by emailing{' '}
+            <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'var(--accent2)' }}>{CONTACT_EMAIL}</a>.
+          </p>
+          <p style={{ ...p, marginBottom: 0 }}>
+            By registering you consent to this use of your information. Runners under 18 must have a
+            parent or legal guardian complete and sign this form.
+          </p>
+        </>
+      )}
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ background: 'none', border: 'none', color: 'var(--accent2)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', padding: 0, marginTop: 2 }}>
+        {open ? 'Show less' : 'Read more'}
+      </button>
+    </div>
+  )
+}
+
 function Footer() {
   return (
     <div style={{ textAlign: 'center', color: 'var(--border)', fontSize: '0.8rem', fontWeight: 600, marginTop: 40 }}>
+      <div style={{ marginBottom: 6 }}>
+        Questions or a request to delete your information?{' '}
+        <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'inherit', textDecoration: 'underline' }}>{CONTACT_EMAIL}</a>
+      </div>
       {RACE_NAME}
     </div>
   )

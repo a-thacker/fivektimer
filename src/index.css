@@ -5,6 +5,17 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Blue Winter — the rounded, playful display face used in the Miles that
+   Matter logo artwork. Set the "Mango Tree Run" title in it so the title,
+   the logo image above it, and the tagline below all read as one lockup. */
+@font-face {
+  font-family: 'Blue Winter';
+  src: url('/fonts/BlueWinter-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Just Another Hand — used for the logo's secondary/tagline type.
    It's an organically condensed handwriting face, so pair it with
    generous letter-spacing wherever it's set (see .mtm-tagline). */
@@ -48,6 +59,19 @@ html, body, #root {
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
+
+/* "The Mango Tree Run" title — set in Blue Winter to match the logo art.
+   It's a chunky rounded display face, so it carries a larger size and the
+   default (tight) tracking looks best. The gold "Mango Tree" span is styled
+   inline in the markup. */
+.mtm-title {
+  font-family: 'Blue Winter', 'Segoe UI', system-ui, sans-serif;
+  color: var(--text);
+  font-size: 2.7rem;
+  font-weight: 400;
+  line-height: 1.02;
+  margin-top: 4px;
+}
 
 /* Logo tagline — "Presented by ... benefiting ..." beneath the Mango Tree Run
    lockup. Set in Just Another Hand and colored gold to echo the logo artwork.
